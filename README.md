@@ -1,111 +1,156 @@
-# 🎬 AI 短剧生成平台
+# 🤖 AI 短剧生成平台 (AI Short Drama Platform)
 
-AI 驱动的短剧自动生成系统 —— 从剧本到分镜 Prompt，全链路自动化。
+> 多 Agent 协作的 AI 短剧自动生成系统  
+> 输入剧本 → 7 个 Agent 协作 → 输出完整分镜表 + 图片/视频 Prompt
 
-> 对标岗位：AI应用开发工程师（AI短剧方向）| 长沙 | 2026
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## 快速开始
+## 🎬 Demo
+
+**一行命令，无需 API Key：**
 
 ```bash
-# 1. 安装依赖
-pip install -r requirements.txt
-
-# 2. 快速体验（无需 API Key）
 python -m scripts.demo
-
-# 3. 启动 API 服务
-cp .env.example .env          # 编辑填入你的 API Key
-uvicorn backend.main:app --reload
-
-# 4. 访问 Swagger 文档
-open http://localhost:8000/docs
 ```
 
-## 项目结构
+输入「求婚」短剧剧本 → 7 个阶段自动运行 → 输出 8 镜分镜表 + 中英双语 Prompt + 质量报告
+
+<details>
+<summary>📺 点击展开 Demo 输出预览</summary>
 
 ```
-ai-short-drama-platform/
-├── backend/               # FastAPI 后端服务
-│   ├── main.py           # 应用入口 + 路由注册
-│   ├── task_queue.py     # 异步任务队列 + 失败重试
-│   └── routes/drama.py   # 短剧生成 API
-│
-├── agents/                # 多 Agent 协作系统
-│   ├── base.py           # Agent 基类 (React 模式)
-│   ├── director.py       # 导演 Agent (总调度)
-│   ├── analyst.py        # 剧本分析 Agent
-│   ├── storyboarder.py   # 分镜规划 Agent
-│   ├── prompt_engineer.py # Prompt 工程 Agent
-│   └── reviewer.py       # 质量审核 Agent
-│
-├── tools/                 # 工具层
-│   ├── llm_client.py     # LLM 统一调用 (重试+记录)
-│   ├── function_calling.py # Function Calling 实现
-│   └── image_gen.py      # 图片/视频生成封装
-│
-├── prompts/               # Prompt 模板库
-│   └── library.py        # 8 组验证过的 Prompt + A/B 对比
-│
-├── scripts/
-│   └── demo.py           # 一键演示 (无需 API Key)
-│
-├── config.py              # 统一配置管理
-├── models.py              # 数据库模型 (调用记录+任务管理)
-├── requirements.txt
-├── .env.example
-└── README.md
+============================================================
+  AI 短剧生成平台 — Demo 模式
+  (无需 API Key，使用内置示例数据)
+============================================================
+
+  [Phase 1] 预处理: 210字符, 12行, 约1.0分钟
+  [Phase 2] 角色提取: 2个角色 (小红/小明)
+  [Phase 3] 场景提取: 1个场景 (街角咖啡厅)
+  [Phase 4] 道具提取: 3个道具 (戒指盒/咖啡杯/手机)
+  [Phase 5] 分镜规划: 8个分镜, 预估100秒
+  [Phase 6] Prompt生成: 8图片, 8视频
+  [Phase 7] 质量审核: 5.0/5 (通过)
+
+  总耗时: 1.7秒
+  项目: 求婚
 ```
 
-## 工作流架构
+</details>
+
+## 🏗️ Agent 架构
 
 ```
-用户提交剧本
-    ↓
-┌─────────────────────────────────────────┐
-│ Director Agent (总调度)                   │
-│   ├─ Analyst Agent ×3 (并行)              │
-│   │   ├ 角色提取                         │
-│   │   ├ 场景提取                         │
-│   │   └ 道具提取                         │
-│   ├─ Storyboarder Agent                  │
-│   │   └ 分镜表 (11维)                    │
-│   ├─ PromptEngineer Agent ×2 (并行)       │
-│   │   ├ 图片 Prompt (中英双语)            │
-│   │   └ 视频 Prompt                      │
-│   └─ Reviewer Agent                      │
-│       └ 5维质量评分                       │
-└─────────────────────────────────────────┘
-    ↓
-JSON 输出: 分镜表 + Prompt + 质量报告
+                     ┌──────────────┐
+   剧本输入 ────────→│  Director     │
+                     │  Agent (调度器)│
+                     └──────┬───────┘
+           ┌────────────────┼────────────────┐
+           ▼                ▼                ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ 角色提取   │    │ 场景提取   │    │ 道具提取   │  ← 3 Agent 并行
+    │ Analyst   │    │ Analyst   │    │ Analyst   │
+    └────┬─────┘    └────┬─────┘    └────┬─────┘
+         └───────────────┼───────────────┘
+                         ▼
+                  ┌──────────────┐
+                  │ Storyboarder │  ← 主 Agent：11 维分镜表
+                  │ Agent        │
+                  └──────┬───────┘
+           ┌─────────────┴─────────────┐
+           ▼                           ▼
+    ┌──────────────┐           ┌──────────────┐
+    │ 图片 Prompt   │           │ 视频 Prompt   │  ← 2 Agent 并行
+    │ Engineer     │           │ Engineer     │
+    └──────┬───────┘           └──────┬───────┘
+           └──────────┬───────────────┘
+                      ▼
+               ┌──────────────┐
+               │  Reviewer     │  ← 5 维评分 (叙事/视觉/节奏/情感/可生成性)
+               │  Agent        │
+               └──────┬───────┘
+                      ▼
+                 📦 JSON 输出
 ```
 
-## 对标 JD 清单
+## 🔧 Agent 核心设计
 
-| JD 要求 | 实现位置 | 状态 |
-|---------|---------|------|
-| Agent 应用能力 (意图识别/任务拆解/工作流编排/多轮对话/工具调用) | `agents/` 全部 | ✅ |
-| AI 短剧创作 (剧本解析/角色/场景/道具/分镜/Prompt) | `agents/analyst.py` `agents/storyboarder.py` | ✅ |
-| 接入大模型/图片/视频生成模型 | `tools/llm_client.py` `tools/image_gen.py` | ✅ |
-| 设计和优化 Prompt/工作流/异常处理 | `prompts/library.py` `agents/base.py` | ✅ |
-| 使用 Claude Code/Cursor 快速开发 | 本项目的开发过程 | ✅ |
-| 后端功能 (任务队列/调用记录/结果管理/失败重试) | `backend/task_queue.py` `models.py` | ✅ |
-| 跟进模型效果，优化生成质量 | `tools/llm_client.py` stats() `prompts/library.py` prompt_compare() | ✅ |
-| Coze/Dify/LangChain 经验 | Coze 工作流 + `agents/base.py` (自研框架) | ✅ |
-| Function Calling | `tools/function_calling.py` | ✅ |
-| RAG/知识库/意图识别 | Agent 知识库 + `agents/base.py` think() | ✅ |
-| 多 Agent 协作 | `agents/director.py` + 全部 Agent | ✅ |
+### React 模式（think → act → observe → respond）
 
-## 技术亮点
+每个 Agent 遵循标准的思考-行动-观察-响应循环，自主决定下一步做什么。
 
-- **React 模式 Agent**: 每个 Agent 遵循 think()→act()→observe()→respond() 生命周期
-- **Function Calling**: 5 个专业工具，LLM 自动选择并生成参数
-- **多 Agent 协作**: Director 调度 4 类专业 Agent，Parallel + Pipeline 混合编排
-- **任务队列**: 异步执行 + 自动重试 + 状态追踪 + TTL 过期
-- **调用记录**: 完整记录每次 LLM 调用的 Token、耗时、状态
-- **Prompt 版本管理**: 8 组 Prompt 模板，支持 A/B 对比测试
-- **API First**: FastAPI + Swagger 文档，可直接集成到前端
+```python
+class BaseAgent:
+    def run(self, input_data, context):
+        plan = self.think(input_data)        # 意图识别 + 任务拆解
+        result = self.act(input_data, plan)  # 执行业务逻辑
+        if not self.observe(result):         # 结果检查
+            result = self.act(input_data, plan)  # 不理想则重试
+        return self.respond(result)          # 格式化输出
+```
 
-## API 示例
+### Function Calling（5 个 Tool Schema）
+
+| Tool | 功能 |
+|------|------|
+| `search_character_info` | 查询角色特征库（性格/外貌/关系） |
+| `analyze_scene_atmosphere` | 分析场景氛围、光线、色调 |
+| `suggest_shot_composition` | 根据角色数/对白/情绪推荐景别机位 |
+| `estimate_shot_duration` | 根据台词字数+动作数估算时长 |
+| `generate_image_prompt` | 生成中英双语 AI 绘画 Prompt |
+
+### 技术亮点
+
+- **LLM 统一客户端**：DeepSeek / 豆包 / OpenAI 三接口，自动重试（指数退避）+ 调用日志 + Token 统计
+- **异步任务队列**：支持并发请求，失败自动重试 + TTL 过期
+- **A/B Prompt 测试**：8 组 Prompt 支持版本对比，可量化评估效果
+- **多模态集成**：对接即梦 + 通义万相图片/视频生成 API
+
+## 🚀 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/Y-w1234/ai-short-drama-platform.git
+cd ai-short-drama-platform
+```
+
+### 2. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. 离线 Demo（不调 API 也能跑）
+
+```bash
+python -m scripts.demo
+```
+
+### 4. 使用真实 API
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 DEEPSEEK_API_KEY
+
+# 启动 API 服务
+python run.py
+# → http://localhost:8000/docs
+```
+
+## 📡 API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 服务信息 |
+| `/health` | GET | 健康检查 |
+| `/api/v1/drama/generate` | POST | 提交剧本，启动完整分析流水线 |
+| `/api/v1/drama/task/{task_id}` | GET | 查询分析任务状态与结果 |
+| `/api/v1/drama/tasks` | GET | 获取最近任务列表 |
+
+**使用示例：**
 
 ```bash
 # 提交短剧生成任务
@@ -115,11 +160,60 @@ curl -X POST http://localhost:8000/api/v1/drama/generate \
 
 # 查询任务结果
 curl http://localhost:8000/api/v1/drama/task/{task_id}
-
-# 查看最近任务列表
-curl http://localhost:8000/api/v1/drama/tasks
 ```
 
-## License
+## 🛠️ 技术栈
 
-MIT — 本项目的 Prompt 模板和架构设计可自由使用和修改。
+| 层级 | 技术 |
+|------|------|
+| **Agent 框架** | 自研 React 模式 |
+| **LLM** | DeepSeek / 豆包 / OpenAI |
+| **后端** | FastAPI + Uvicorn |
+| **数据库** | SQLite + SQLAlchemy |
+| **任务队列** | asyncio + 自研重试机制 |
+| **多模态** | 即梦 API + 通义万相 API |
+
+## 📂 项目结构
+
+```
+ai-short-drama-platform/
+├── agents/                  # 多 Agent 协作系统
+│   ├── base.py             # Agent 基类（React 模式）
+│   ├── director.py         # 导演 Agent（总调度）
+│   ├── analyst.py          # 剧本分析 Agent（角色/场景/道具）
+│   ├── storyboarder.py     # 分镜规划 Agent（11 维分镜表）
+│   ├── prompt_engineer.py  # Prompt 工程 Agent（图片/视频）
+│   └── reviewer.py         # 质量审核 Agent（5 维评分）
+├── tools/                   # 工具层
+│   ├── llm_client.py       # LLM 统一客户端（重试+记录）
+│   ├── function_calling.py # 5 个 Tool Schema + 执行器
+│   └── image_gen.py        # 图片/视频生成 API 封装
+├── prompts/
+│   └── library.py          # 8 组验证过的 Prompt + A/B 对比
+├── backend/                 # FastAPI 后端
+│   ├── main.py             # 应用入口
+│   ├── routes/drama.py     # 短剧生成 API 路由
+│   └── task_queue.py       # 异步任务队列
+├── scripts/
+│   ├── demo.py             # 离线演示（无需 API Key）
+│   └── cli.py              # 命令行工具
+├── tests/
+│   └── test_pipeline.py    # 流水线测试
+├── config.py               # 统一配置管理
+├── models.py               # 数据库模型
+├── run.py                  # 一键启动脚本
+└── requirements.txt
+```
+
+## 📝 License
+
+MIT
+
+---
+
+## 🔗 相关项目
+
+| 项目 | 说明 |
+|------|------|
+| [📚 RAG 问答系统](https://github.com/Y-w1234/my-rag-project) | FastAPI + LangChain + ChromaDB 私有知识库问答 |
+| [🎬 短剧流水线（单文件版）](https://github.com/Y-w1234/ai-short-drama-pipeline) | 纯 Python 单文件实现，快速理解核心流程 |
