@@ -9,6 +9,8 @@
 
 ## 🎬 Demo
 
+📺 **[2 分钟演示视频](https://www.bilibili.com/video/BV1NeMi6NENu/)** — B 站在线观看
+
 **一行命令，无需 API Key：**
 
 ```bash
