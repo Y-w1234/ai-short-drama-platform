@@ -1,0 +1,37 @@
+# 敏感信息 - API Key
+.env
+
+# Python 虚拟环境
+.venv/
+venv/
+env/
+.venv
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# 数据库文件
+*.db
+*.sqlite
+data/
+
+# IDE 配置
+.idea/
+.cursor/
+.claude/
+.vscode/
+*.swp
+*.swo
+
+# 输出目录
+output/
+
+# 系统文件
+Thumbs.db
+.DS_Store
+desktop.ini
