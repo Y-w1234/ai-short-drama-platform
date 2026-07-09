@@ -175,6 +175,29 @@ curl http://localhost:8000/api/v1/drama/task/{task_id}
 | **任务队列** | asyncio + 自研重试机制 |
 | **多模态** | 即梦 API + 通义万相 API |
 
+## 🧪 运行测试
+
+```bash
+pip install pytest httpx
+pytest tests/ -v
+```
+
+## 📋 环境变量参考
+
+| 变量 | 必填 | 说明 | 默认值 |
+|------|------|------|--------|
+| `DEEPSEEK_API_KEY` | ✅ | DeepSeek API Key | — |
+| `DOUBAO_API_KEY` | | 豆包 API Key | — |
+| `LLM_PROVIDER` | | 模型服务商 | `deepseek` |
+| `LLM_MODEL` | | 模型名 | `deepseek-chat` |
+| `LLM_BASE_URL` | | API 地址（可改代理） | `https://api.deepseek.com/v1` |
+| `IMAGE_PROVIDER` | | 图片生成服务商 | `jimeng` |
+| `VIDEO_PROVIDER` | | 视频生成服务商 | `jimeng` |
+| `IMAGE_API_KEY` | | 图片生成 API Key | — |
+| `VIDEO_API_KEY` | | 视频生成 API Key | — |
+| `DATABASE_URL` | | 数据库连接 | `sqlite:///data/drama.db` |
+| `DEBUG` | | 调试模式 | `false` |
+
 ## 📂 项目结构
 
 ```

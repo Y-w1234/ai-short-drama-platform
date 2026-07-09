@@ -18,12 +18,13 @@ build/
 # 数据库文件
 *.db
 *.sqlite
-data/
+data/*
+!data/.gitkeep
 
 # IDE 配置
 .idea/
 .cursor/
-.claude/
+.claude/worktrees/
 .vscode/
 *.swp
 *.swo
