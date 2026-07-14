@@ -7,7 +7,8 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688)](https://fastapi.tiangolo.com)
 [![Multi-Scene](https://img.shields.io/badge/scenes-4-orange)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Demo](https://img.shields.io/badge/Demo-Offline%20Mode-brightgreen)](#快速开始)
+
+🚀 **在线体验**: [ai-short-drama-platform.streamlit.app](https://ai-short-drama-platform-xm7mv6msqzwx8qgfykmq5w.streamlit.app/)
 
 ---
 
