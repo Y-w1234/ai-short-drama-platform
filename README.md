@@ -8,7 +8,7 @@
 [![Multi-Scene](https://img.shields.io/badge/scenes-4-orange)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-🚀 **在线体验**: [ai-short-drama-platform.streamlit.app](https://ai-short-drama-platform-xm7mv6msqzwx8qgfykmq5w.streamlit.app/)
+🚀 **在线体验**: [y-w1234.github.io/ai-short-drama-platform](https://y-w1234.github.io/ai-short-drama-platform/)
 
 ---
 
