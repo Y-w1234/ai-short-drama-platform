@@ -75,6 +75,58 @@ body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; background:#0a0a
 .spinner { display:inline-block; width:20px; height:20px; border:2px solid rgba(255,255,255,0.2); border-top-color:#ff6b35; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:8px; vertical-align:middle; }
 @keyframes spin { to { transform:rotate(360deg); } }
 .loading { text-align:center; padding:40px; color:#ff6b35; }
+
+/* ══════════════════════════════════════ */
+/* 移动端适配 (<768px)                    */
+/* ══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .header { padding:16px; }
+  .header h1 { font-size:20px; }
+  .header p { font-size:12px; display:none; }
+
+  .layout { flex-direction:column; height:auto; }
+  .sidebar { width:100%; padding:10px 16px; border-right:none; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .sidebar h3 { display:none; }
+  .sidebar .scene-btn { width:auto; flex:1; min-width:calc(50% - 12px); padding:8px 6px; margin:2px; font-size:11px; border-radius:6px; }
+  .sidebar .scene-btn .desc { display:none; }
+  .sidebar .scene-btn .icon { font-size:16px; }
+  /* 手机端隐藏安全开关和关于(只保留4个场景按钮) */
+  .sidebar > label, .sidebar > div[style*="margin-top:25px"] { display:none; }
+  .sidebar > p { display:none; }
+
+  .main { padding:12px; }
+  .input-area textarea { height:120px; font-size:12px; }
+  .btn-row { flex-wrap:wrap; }
+  .btn { padding:10px 14px; font-size:12px; }
+
+  .metrics { grid-template-columns:repeat(3,1fr); gap:6px; }
+  .metric { padding:10px; }
+  .metric .num { font-size:18px; }
+  .metric .label { font-size:10px; }
+
+  .tabs { overflow-x:auto; }
+  .tab { padding:8px 12px; font-size:11px; white-space:nowrap; }
+
+  .shot-card { padding:10px; margin:8px 0; }
+  .shot-card h4 { font-size:13px; }
+
+  .scene-cards { grid-template-columns:repeat(2,1fr); gap:8px; }
+  .scene-card { padding:12px 8px; }
+  .scene-card .sc-icon { font-size:24px; }
+
+  .status-bar { padding:6px 12px; font-size:10px; flex-wrap:wrap; }
+  .status-bar span { display:none; }
+  .status-bar span:first-child { display:block; }
+
+  .quality-bar .label { width:100px; font-size:11px; }
+  .prompt-card { font-size:11px; padding:8px; }
+
+  .safety-badge { font-size:11px; padding:4px 10px; }
+
+  .empty-state .big-icon { font-size:40px; }
+  .empty-state h2 { font-size:16px; }
+  .empty-state p { font-size:12px; padding:0 10px; }
+}
 </style>
 </head>
 <body>
