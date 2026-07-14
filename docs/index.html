@@ -12,7 +12,9 @@ body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; background:#0a0a
 .header p { color:#888; margin-top:8px; font-size:15px; }
 
 .layout { display:flex; height:calc(100vh - 110px); }
-.sidebar { width:300px; background:#0d1117; padding:25px; border-right:1px solid rgba(255,255,255,0.05); overflow-y:auto; }
+.sidebar { width:300px; min-width:180px; max-width:500px; background:#0d1117; padding:25px; border-right:1px solid rgba(255,255,255,0.05); overflow-y:auto; flex-shrink:0; }
+.resizer { width:5px; cursor:col-resize; background:transparent; flex-shrink:0; transition:background 0.2s; user-select:none; }
+.resizer:hover,.resizer.active { background:#ff6b35; }
 .sidebar h3 { color:#ff6b35; margin-bottom:15px; font-size:16px; }
 .scene-btn { display:block; width:100%; padding:12px 15px; margin:8px 0; background:#1a1a2e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#ccc; cursor:pointer; text-align:left; font-size:14px; transition:all 0.2s; }
 .scene-btn:hover { border-color:#ff6b35; background:#1a1a2e44; }
@@ -90,6 +92,7 @@ body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; background:#0a0a
   .sidebar .scene-btn { width:auto; flex:1; min-width:calc(50% - 12px); padding:8px 6px; margin:2px; font-size:11px; border-radius:6px; }
   .sidebar .scene-btn .desc { display:none; }
   .sidebar .scene-btn .icon { font-size:16px; }
+  .resizer { display:none; }
   /* 手机端隐藏安全开关和关于(只保留4个场景按钮) */
   .sidebar > label, .sidebar > div[style*="margin-top:25px"] { display:none; }
   .sidebar > p { display:none; }
@@ -175,6 +178,9 @@ body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; background:#0a0a
       </p>
     </div>
   </div>
+
+  <!-- 可拖拽分隔条 (桌面端) -->
+  <div class="resizer" id="resizer"></div>
 
   <!-- Main -->
   <div class="main" id="mainContent">
@@ -544,6 +550,47 @@ function renderTab(tab, storyboard, prompts, qr) {
     el.innerHTML = html;
   }
 }
+
+// ══════════════════════════════════════
+// 侧边栏拖拽调整宽度 (仅桌面端)
+// ══════════════════════════════════════
+(function(){
+  const sidebar = document.querySelector('.sidebar');
+  const resizer = document.getElementById('resizer');
+  if (!sidebar || !resizer) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  resizer.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    startX = e.clientX;
+    startWidth = sidebar.offsetWidth;
+    resizer.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    const delta = e.clientX - startX;
+    let newWidth = startWidth + delta;
+    newWidth = Math.max(180, Math.min(500, newWidth));
+    sidebar.style.width = newWidth + 'px';
+    sidebar.style.transition = 'none';
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!isDragging) return;
+    isDragging = false;
+    resizer.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    sidebar.style.transition = '';
+  });
+})();
 
 // Init
 updateCharCount();
