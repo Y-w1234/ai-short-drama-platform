@@ -36,8 +36,10 @@ class PromptEngineerAgent(BaseAgent):
         board = input_data.get("storyboard", {})
         self.system_prompt = plan["sys_prompt"]  # 切换 System Prompt
 
-        raw = self.call_llm(
-            f"请为以下分镜生成{plan['prompt_type']} Prompt：\n{board}",
+        raw = self.call_llm_safe_with_scan(
+            instruction=f"请为以下分镜生成{plan['prompt_type']} Prompt：",
+            user_content=json.dumps(board, ensure_ascii=False),
+            content_label="前置分镜数据",
             json_mode=True
         )
         return self.extract_json(raw)

@@ -67,10 +67,11 @@ class TaskQueue:
     - "生成结果管理": TTL过期清理
     """
 
-    def __init__(self, max_concurrent: int = 5, result_ttl: int = 3600):
-        self.queue: Queue = Queue()
+    def __init__(self, max_concurrent: int = 5, result_ttl: int = 3600, max_queue_size: int = 100):
+        self.queue: Queue = Queue(maxsize=max_queue_size)
         self.tasks: dict[str, Task] = {}
         self.max_concurrent = max_concurrent
+        self.max_queue_size = max_queue_size
         self.result_ttl = result_ttl
         self._workers: list[threading.Thread] = []
         self._running = False
@@ -154,7 +155,14 @@ class TaskQueue:
 
             except Exception as e:
                 task.retry_count = attempt + 1
-                task.error = str(e)
+                # 净化错误信息: 移除路径/密钥等敏感信息
+                raw_err = str(e)
+                import re as _re
+                raw_err = _re.sub(r'sk-[a-zA-Z0-9_-]{20,}', 'sk-***REDACTED***', raw_err)
+                raw_err = _re.sub(r'Bearer\s+[a-zA-Z0-9._\-]+', 'Bearer ***REDACTED***', raw_err)
+                raw_err = _re.sub(r'[A-Z]:\\[^\s,;]{10,}', '[PATH_REDACTED]', raw_err)
+                raw_err = _re.sub(r'[\w/._-]{30,}', '[LONG_PATH_REDACTED]', raw_err)
+                task.error = raw_err
                 if attempt < task.max_retries:
                     task.status = TaskStatus.RETRYING
                     task.progress_msg = f"失败，{attempt+2}秒后重试..."

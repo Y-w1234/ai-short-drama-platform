@@ -51,9 +51,12 @@ class StoryboarderAgent(BaseAgent):
 场景列表: {scenes}
 道具列表: {props}"""
 
-        raw = self.call_llm(
-            f"剧本：\n{script}\n\n已提取的结构信息：\n{context}\n\n请生成详细分镜表。",
-            json_mode=True
+        instruction = f"已提取的结构信息：\n{context}\n\n请根据以上信息和下面的剧本生成详细分镜表。"
+        raw = self.call_llm_safe(
+            instruction=instruction,
+            user_content=script,
+            content_label="剧本",
+            json_mode=True,
         )
         return self.extract_json(raw)
 

@@ -51,12 +51,20 @@ class TaskQueueConfig:
     result_ttl: int = 3600  # 结果保留时间(秒)
 
 @dataclass
+class SceneConfig:
+    """场景配置 —— 对标多场景视频生产"""
+    scene_type: str = os.getenv("SCENE_TYPE", "short_drama")  # short_drama / product_showcase / knowledge_short / cross_border
+    aspect_ratio: str = ""   # 留空则使用场景默认值
+    style_override: str = ""  # 留空则使用场景默认值
+
+@dataclass
 class AppConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     image: ImageGenConfig = field(default_factory=ImageGenConfig)
     video: VideoGenConfig = field(default_factory=VideoGenConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     task_queue: TaskQueueConfig = field(default_factory=TaskQueueConfig)
+    scene: SceneConfig = field(default_factory=SceneConfig)
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
 
 config = AppConfig()

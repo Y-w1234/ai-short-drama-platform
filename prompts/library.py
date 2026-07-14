@@ -78,6 +78,61 @@ dialogue, duration_seconds, camera_movement, transition, mood
 输出JSON: {"scores":{维度:{score,reason}},"overall_score":数字,"verdict":"通过/修改/重做","suggestions":[]}""",
     },
 
+    # ============== 电商商品展示系列 ==============
+    "product_showcase_storyboard": {
+        "description": "商品展示视频分镜 —— 卖点→场景→CTA",
+        "model": "DeepSeek-V3 / 豆包1.8",
+        "temperature": 0.4,
+        "max_tokens": 4096,
+        "version": "1.0",
+        "prompt": """你是资深电商短视频导演。根据商品信息生成商品展示分镜表。
+原则: 前3秒强钩子 | 每个卖点=1个使用场景镜头 | 产品特写穿插 | 最后必须有CTA
+每个分镜: shot_id, shot_type, visual_description(80字+),
+product_focus(展示哪个卖点), dialogue(口播文案), duration_seconds,
+camera_movement, transition, mood
+输出JSON: {"project":{"title":"","product":"","estimated_duration":""},"storyboard":[...]}""",
+    },
+    "product_image_prompt": {
+        "description": "商品图片 Prompt —— 场景化商品展示",
+        "model": "DeepSeek-V3 / 豆包1.8",
+        "temperature": 0.3,
+        "version": "1.0",
+        "prompt": """你是电商摄影Prompt工程师。为商品分镜生成图片Prompt。
+结构: [商品主体+角度]+[使用场景]+[光线氛围]+[构图(产品摄影法则)]+[风格:product photography,clean lighting,lifestyle]
+负向: blur, deformed product, text artifacts, watermark, low quality
+输出JSON: {"prompts":[{"shot_id":"","prompt_cn":"","prompt_en":"","negative_prompt":"","style_tags":[],"aspect_ratio":"9:16"}]}""",
+    },
+
+    # ============== 知识口播系列 ==============
+    "knowledge_short_storyboard": {
+        "description": "知识口播分镜 —— 信息层次+可视化",
+        "model": "DeepSeek-V3 / 豆包1.8",
+        "temperature": 0.4,
+        "max_tokens": 4096,
+        "version": "1.0",
+        "prompt": """你是知识科普短视频导演。将知识文案转化为可视化分镜表。
+原则: 每8-10秒一个信息点 | 复杂概念用动画/图表 | 类比和隐喻视觉化 | 节奏张弛有度
+每个分镜: shot_id, shot_type, visual_description(含图表/动画描述),
+key_point(传递哪个知识点), visual_metaphor(用什么视觉类比),
+dialogue, duration_seconds, transition, mood
+输出JSON: {"project":{"title":"","topic":"","estimated_duration":""},"storyboard":[...]}""",
+    },
+
+    # ============== 跨境多语言系列 ==============
+    "cross_border_storyboard": {
+        "description": "跨境视频分镜 —— 多语言+文化适配",
+        "model": "DeepSeek-V3 / 豆包1.8",
+        "temperature": 0.4,
+        "max_tokens": 4096,
+        "version": "1.0",
+        "prompt": """你是跨境电商短视频导演。为商品生成目标市场本地化分镜表。
+原则: 考虑文化差异 | 视频规格适配平台 | 英语为主可加字幕 | 前3秒品牌/产品强露出
+每个分镜: shot_id, shot_type, visual_description(英文80字+),
+localization_notes(本地化建议), dialogue(英文口播),
+duration_seconds, platform(适配平台), mood
+输出JSON: {"project":{"title":"","product":"","target_market":"","estimated_duration":""},"storyboard":[...]}""",
+    },
+
     # ============== AI Coding 常用 Prompt ==============
     "vibe_coding_helpers": {
         "description": "Claude Code/Cursor 中常用的开发 Prompt 模板",

@@ -88,6 +88,40 @@ class BaseAgent:
             return self.llm.chat(self.system_prompt, user_message, json_mode=json_mode)
         return "{}"
 
+    def call_llm_safe(self, instruction: str, user_content: str,
+                      content_label: str = "用户提供的内容",
+                      json_mode: bool = True) -> str:
+        """安全 LLM 调用 —— 指令与用户数据分离，防注入
+
+        Args:
+            instruction: 给模型的指令（如"请分析以下剧本"）
+            user_content: 用户提供的数据（如剧本原文）
+            content_label: 内容的类型标签（如"剧本"、"商品文案"）
+        """
+        if self.llm and hasattr(self.llm, 'safe_chat'):
+            return self.llm.safe_chat(
+                self.system_prompt, instruction, user_content,
+                content_label=content_label, json_mode=json_mode,
+                call_type=getattr(self, 'role', 'agent'),
+            )
+        # Fallback: 传统调用方式
+        return self.call_llm(user_content, json_mode=json_mode)
+
+    def call_llm_safe_with_scan(self, instruction: str, user_content: str,
+                                content_label: str = "用户提供的内容",
+                                json_mode: bool = True) -> str:
+        """双层安全 LLM 调用 —— 内容扫描 + 结构隔离
+
+        Raises ValueError 如果内容被安全扫描器阻止
+        """
+        if self.llm and hasattr(self.llm, 'safe_chat_with_content_scan'):
+            return self.llm.safe_chat_with_content_scan(
+                self.system_prompt, instruction, user_content,
+                content_label=content_label, json_mode=json_mode,
+                call_type=getattr(self, 'role', 'agent'),
+            )
+        return self.call_llm_safe(instruction, user_content, content_label, json_mode)
+
     def extract_json(self, raw: str) -> dict:
         """从 LLM 输出中提取 JSON —— 对标JD"异常处理机制" """
         text = raw.strip()

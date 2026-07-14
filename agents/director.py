@@ -123,11 +123,20 @@ class DirectorAgent(BaseAgent):
             "total_shots": len(board_result.data.get("storyboard", [])),
         }
 
+        # Phase 6: 输出完整性校验 — 防止被注入的质量评分欺骗
+        # 如果分镜数异常少(<2)但评分却是满分 → 评分可能被注入篡改
+        qc_score = qc_report.get("overall_score", 0)
+        total_shots = final_output["total_shots"]
+        if total_shots < 2 and qc_score >= 4.5:
+            final_output["quality_report"]["integrity_warning"] = (
+                f"分镜数({total_shots})与评分({qc_score})不匹配 — 可能被篡改"
+            )
+
         return AgentResult(
             success=True,
             data=final_output,
             reasoning=f"导演完成调度: "
                        f"角色{char_result.data.get('total','?')}个, "
                        f"场景{scene_result.data.get('total','?')}个, "
-                       f"分镜{final_output['total_shots']}个",
+                       f"分镜{total_shots}个",
         )

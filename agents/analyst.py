@@ -48,7 +48,11 @@ class AnalystAgent(BaseAgent):
 
     def act(self, input_data: dict, plan: dict) -> dict:
         script = input_data.get("script_text", "")
-        raw = self.call_llm(f"{plan['prompt']}\n\n剧本：\n{script}")
+        raw = self.call_llm_safe(
+            instruction=plan['prompt'],
+            user_content=script,
+            content_label="剧本",
+        )
         return self.extract_json(raw)
 
     def respond(self, result: dict) -> AgentResult:

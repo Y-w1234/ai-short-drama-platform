@@ -76,7 +76,7 @@ except ImportError:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from config import config as app_config
-engine = create_engine(app_config.database.url, echo=app_config.debug)
+engine = create_engine(app_config.database.url, echo=False)  # SQL echo永远关闭, 防止日志泄露
 SessionLocal = sessionmaker(bind=engine)
 
 def init_db():

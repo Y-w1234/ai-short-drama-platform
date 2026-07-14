@@ -24,12 +24,21 @@ class ReviewerAgent(BaseAgent):
     system_prompt = REVIEWER_PROMPT
 
     def act(self, input_data: dict, plan: dict) -> dict:
+        import json
         storyboard = input_data.get("storyboard", {})
         img = input_data.get("image_prompts", {})
         vid = input_data.get("video_prompts", {})
 
-        raw = self.call_llm(
-            f"分镜方案：{storyboard}\n图片Prompt：{img}\n视频Prompt：{vid}",
+        combined = json.dumps({
+            "分镜方案": storyboard,
+            "图片Prompt": img,
+            "视频Prompt": vid,
+        }, ensure_ascii=False)
+
+        raw = self.call_llm_safe_with_scan(
+            instruction="请对以下分镜方案进行5维质量审核(叙事/视觉/节奏/情感/可生成性)并给出0-5评分。输出严格JSON。",
+            user_content=combined,
+            content_label="分镜方案数据",
             json_mode=True
         )
         return self.extract_json(raw)
