@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 原生视频生产管线</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; background:#0a0a0f; color:#e0e0e0; }
+.header { background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding:30px 40px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.header h1 { font-size:32px; background:linear-gradient(90deg,#ff6b35,#ff3b30); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header p { color:#888; margin-top:8px; font-size:15px; }
+
+.layout { display:flex; height:calc(100vh - 110px); }
+.sidebar { width:300px; background:#0d1117; padding:25px; border-right:1px solid rgba(255,255,255,0.05); overflow-y:auto; }
+.sidebar h3 { color:#ff6b35; margin-bottom:15px; font-size:16px; }
+.scene-btn { display:block; width:100%; padding:12px 15px; margin:8px 0; background:#1a1a2e; border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#ccc; cursor:pointer; text-align:left; font-size:14px; transition:all 0.2s; }
+.scene-btn:hover { border-color:#ff6b35; background:#1a1a2e44; }
+.scene-btn.active { border-color:#ff6b35; background:rgba(255,107,53,0.1); color:#ff6b35; }
+.scene-btn .icon { font-size:20px; margin-right:8px; }
+.scene-btn .desc { font-size:11px; color:#666; margin-top:3px; }
+
+.main { flex:1; padding:30px 40px; overflow-y:auto; }
+.input-area { margin-bottom:25px; }
+.input-area textarea { width:100%; height:180px; background:#1a1a2e; border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#e0e0e0; padding:15px; font-size:14px; resize:vertical; font-family:inherit; }
+.input-area textarea:focus { outline:none; border-color:#ff6b35; }
+.btn-row { display:flex; gap:12px; margin-top:12px; }
+.btn { padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-size:14px; font-weight:600; transition:all 0.2s; }
+.btn-primary { background:linear-gradient(135deg,#ff6b35,#ff3b30); color:#fff; }
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(255,107,53,0.3); }
+.btn-outline { background:transparent; border:1px solid rgba(255,255,255,0.2); color:#ccc; }
+
+.safety-badge { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:20px; font-size:13px; margin-bottom:15px; }
+.safety-badge.pass { background:rgba(0,200,100,0.1); color:#00c864; border:1px solid rgba(0,200,100,0.2); }
+.safety-badge.fail { background:rgba(255,59,48,0.1); color:#ff3b30; border:1px solid rgba(255,59,48,0.2); }
+
+.metrics { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:20px 0; }
+.metric { background:#1a1a2e; border-radius:12px; padding:20px; text-align:center; border:1px solid rgba(255,255,255,0.05); }
+.metric .num { font-size:28px; font-weight:900; color:#ff6b35; }
+.metric .label { font-size:12px; color:#888; margin-top:5px; }
+
+.tabs { display:flex; gap:0; margin:20px 0; border-bottom:1px solid rgba(255,255,255,0.1); }
+.tab { padding:12px 20px; cursor:pointer; color:#888; border-bottom:2px solid transparent; font-size:14px; transition:all 0.2s; }
+.tab:hover { color:#ccc; }
+.tab.active { color:#ff6b35; border-bottom-color:#ff6b35; }
+
+.shot-card { background:#1a1a2e; border-radius:12px; padding:20px; margin:12px 0; border-left:4px solid #ff6b35; }
+.shot-card h4 { color:#ff6b35; margin-bottom:8px; }
+.shot-card .meta { font-size:12px; color:#888; margin-top:8px; }
+.shot-card .dialogue { color:#ffd700; margin-top:8px; font-style:italic; }
+
+.prompt-card { background:#0d1117; border-radius:8px; padding:15px; margin:8px 0; font-family:'Courier New',monospace; font-size:13px; line-height:1.6; }
+.prompt-card .en { color:#888; margin-top:8px; }
+.prompt-card .tags { margin-top:8px; }
+.prompt-card .tag { display:inline-block; padding:2px 10px; background:rgba(255,107,53,0.1); color:#ff6b35; border-radius:4px; font-size:11px; margin-right:6px; }
+
+.quality-bar { display:flex; align-items:center; gap:10px; margin:8px 0; }
+.quality-bar .label { width:160px; font-size:13px; color:#aaa; }
+.quality-bar .bar-container { flex:1; background:#0d1117; border-radius:4px; height:8px; overflow:hidden; }
+.quality-bar .bar-fill { height:100%; border-radius:4px; transition:width 0.5s; }
+
+.status-bar { position:fixed; bottom:0; left:0; right:0; background:#0d1117; border-top:1px solid rgba(255,255,255,0.05); padding:10px 40px; display:flex; justify-content:space-between; font-size:12px; color:#666; }
+
+.empty-state { text-align:center; padding:60px 0; color:#666; }
+.empty-state .big-icon { font-size:64px; margin-bottom:20px; }
+.empty-state h2 { color:#888; margin-bottom:10px; }
+
+.scene-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-top:30px; }
+.scene-card { background:#1a1a2e; border-radius:12px; padding:20px; text-align:center; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:all 0.2s; }
+.scene-card:hover { border-color:#ff6b35; transform:translateY(-2px); }
+.scene-card .sc-icon { font-size:36px; margin-bottom:10px; }
+.scene-card .sc-name { font-weight:700; margin-bottom:5px; }
+.scene-card .sc-detail { font-size:12px; color:#666; }
+
+.spinner { display:inline-block; width:20px; height:20px; border:2px solid rgba(255,255,255,0.2); border-top-color:#ff6b35; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:8px; vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading { text-align:center; padding:40px; color:#ff6b35; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎬 AI 原生视频生产管线</h1>
+  <p>Agent 驱动的多场景视频自动生成系统 — 输入内容 → 输出分镜方案 · 7个Agent协作 · 4种场景 · 88项安全探测</p>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h3>🎯 视频场景</h3>
+    <button class="scene-btn active" onclick="switchScene('short_drama')">
+      <span class="icon">🎬</span> 短剧
+      <div class="desc">剧本 → 角色/场景/道具 → 分镜表</div>
+    </button>
+    <button class="scene-btn" onclick="switchScene('product_showcase')">
+      <span class="icon">🛒</span> 电商商品展示
+      <div class="desc">商品信息 → 卖点拆解 → 带货视频方案</div>
+    </button>
+    <button class="scene-btn" onclick="switchScene('knowledge_short')">
+      <span class="icon">📚</span> 知识口播
+      <div class="desc">文章/观点 → 信息可视化 → 科普视频方案</div>
+    </button>
+    <button class="scene-btn" onclick="switchScene('cross_border')">
+      <span class="icon">🌍</span> 跨境多语言
+      <div class="desc">商品+市场 → 本地化视频方案</div>
+    </button>
+
+    <div style="margin-top:25px;">
+      <h3>🔒 安全</h3>
+      <label style="font-size:13px; color:#aaa; display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="safety" checked onchange="toggleSafety()"> 启用内容安全扫描 (53项防御)
+      </label>
+      <div id="safetyStatus" style="margin-top:10px;"></div>
+    </div>
+
+    <div style="margin-top:25px;">
+      <h3>ℹ️ 关于</h3>
+      <p style="font-size:12px; color:#666; line-height:1.8;">
+        v2.0 · 7个Agent React模式<br>
+        Function Calling · 任务队列<br>
+        88项安全探测全部通过<br>
+        <a href="https://github.com/Y-w1234/ai-short-drama-platform" style="color:#ff6b35;">GitHub →</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="mainContent">
+    <div class="input-area">
+      <textarea id="userInput" placeholder="在此输入你的内容...">【第一场】咖啡厅 - 下午
+
+[小红坐在角落，不停看手机]
+小明（走过来）：你等了很久吗？
+小红（抬头，眼眶微红）：三个小时。我以为你不会来了。
+小明（坐下，推过去一杯咖啡）：路上堵车...还有，我去买了这个。
+[他从口袋里掏出一个小盒子，放在桌上]
+小红（愣住）：这是...？
+小明（微笑）：打开看看。
+[小红颤抖着打开盒子，里面是一枚戒指]
+小红（眼泪掉下来）：你...
+小明（单膝跪地）：嫁给我，好吗？
+[整个咖啡厅的人都看过来，鼓掌]
+小红（擦泪，笑出来）：好。</textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generate()">🎬 生成视频方案</button>
+        <button class="btn btn-outline" onclick="showSecurityDemo()">🔒 安全扫描演示</button>
+        <span style="color:#888;font-size:13px;align-self:center;" id="charCount">220 字符</span>
+      </div>
+    </div>
+
+    <div id="safetyBar"></div>
+    <div id="metricsArea"></div>
+    <div id="tabsArea"></div>
+    <div id="contentArea" class="empty-state">
+      <div class="big-icon">🎬</div>
+      <h2>输入内容，点击「生成视频方案」</h2>
+      <p style="color:#888;">7个Agent将协作完成：角色提取 → 场景分析 → 道具识别 → 分镜规划 → Prompt生成 → 质量审核</p>
+
+      <div class="scene-cards">
+        <div class="scene-card" onclick="switchScene('short_drama')"><div class="sc-icon">🎬</div><div class="sc-name">短剧</div><div class="sc-detail">剧本 → 分镜方案</div></div>
+        <div class="scene-card" onclick="switchScene('product_showcase')"><div class="sc-icon">🛒</div><div class="sc-name">电商商品</div><div class="sc-detail">卖点 → 带货视频</div></div>
+        <div class="scene-card" onclick="switchScene('knowledge_short')"><div class="sc-icon">📚</div><div class="sc-name">知识口播</div><div class="sc-detail">文章 → 科普视频</div></div>
+        <div class="scene-card" onclick="switchScene('cross_border')"><div class="sc-icon">🌍</div><div class="sc-name">跨境多语言</div><div class="sc-detail">商品 → 本地化视频</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span>AI 原生视频生产管线 v2.0 | 7 Agents · 4 Scenes · 53 Defense Patterns · 88 Security Probes</span>
+  <span>场景: <span id="currentScene">short_drama</span> | 画幅: <span id="aspectRatio">16:9</span></span>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// Demo data — mirrors scripts/demo.py
+// ══════════════════════════════════════
+const DEMOS = {
+  short_drama: {
+    name: '短剧', icon: '🎬', aspect: '16:9', duration: '60-180秒',
+    defaultScript: '【第一场】咖啡厅 - 下午\n\n[小红坐在角落，不停看手机]\n小明（走过来）：你等了很久吗？\n小红（抬头，眼眶微红）：三个小时。我以为你不会来了。\n小明（坐下，推过去一杯咖啡）：路上堵车...还有，我去买了这个。\n[他从口袋里掏出一个小盒子，放在桌上]\n小红（愣住）：这是...？\n小明（微笑）：打开看看。\n[小红颤抖着打开盒子，里面是一枚戒指]\n小红（眼泪掉下来）：你...\n小明（单膝跪地）：嫁给我，好吗？\n[整个咖啡厅的人都看过来，鼓掌]\n小红（擦泪，笑出来）：好。',
+    result: {
+      project: { title: '求婚', genre: '都市情感', estimated_duration: '100秒' },
+      characters: { total: 2 },
+      scenes: { total: 1 },
+      props: { total: 3 },
+      total_shots: 7,
+      quality_report: { overall_score: 5.0, verdict: '通过',
+        scores: { narrative_flow: {score:5,reason:'7个分镜叙事流畅，起承转合完整'}, visual_consistency: {score:5,reason:'角色外貌在所有分镜中保持一致'}, pacing: {score:5,reason:'从焦虑→期待→震惊→浪漫，张弛有度'}, emotional_expression: {score:5,reason:'景别精准服务情感变化'}, generatability: {score:5,reason:'画面描述可直接用于AI生成'} },
+        suggestions: ['shot_003可增加0.5秒黑场强化情绪转折']
+      },
+      storyboard: [
+        { shot_id:'shot_001', shot_type:'全景', duration_seconds:5, camera_movement:'推', transition:'硬切', mood:'焦虑', camera_angle:'平视',
+          visual_description:'咖啡厅全景，小红独自坐在角落靠窗的双人座，不停看手机。下午阳光透过落地窗投下暖黄色光斑。', dialogue:'' },
+        { shot_id:'shot_002', shot_type:'中景', duration_seconds:4, camera_movement:'固定', transition:'硬切', mood:'期待', camera_angle:'平视',
+          visual_description:'小明端着两杯咖啡走入画面。小红抬起头，眼眶微红。小明在她对面坐下。', dialogue:'小明：你等了很久吗？' },
+        { shot_id:'shot_003', shot_type:'近景', duration_seconds:3, camera_movement:'微推', transition:'硬切', mood:'委屈', camera_angle:'平视',
+          visual_description:'小红眼中泪光闪烁，睫毛上挂着将落未落的泪珠。声音有些颤抖。', dialogue:'小红：三个小时。我以为你不会来了。' },
+        { shot_id:'shot_004', shot_type:'特写', duration_seconds:5, camera_movement:'固定', transition:'硬切', mood:'转折', camera_angle:'俯视',
+          visual_description:'小明把咖啡推到小红面前，同时从口袋掏出深蓝色天鹅绒小方盒放在桌上。暖光下泛着微光。', dialogue:'小明：路上堵车...还有，我去买了这个。' },
+        { shot_id:'shot_005', shot_type:'大特写', duration_seconds:2, camera_movement:'固定', transition:'硬切', mood:'震惊', camera_angle:'平视',
+          visual_description:'小红看到戒指盒，整个人愣住。瞳孔微张，嘴唇微微张开。', dialogue:'小红：这是...？' },
+        { shot_id:'shot_006', shot_type:'全景', duration_seconds:5, camera_movement:'拉', transition:'硬切', mood:'浪漫', camera_angle:'平视',
+          visual_description:'小明从沙发座起身，单膝跪地。小红捂住了嘴，眼泪终于滑落。周围客人纷纷转头。', dialogue:'小明：嫁给我，好吗？' },
+        { shot_id:'shot_007', shot_type:'全景', duration_seconds:4, camera_movement:'固定+微推', transition:'淡出', mood:'感动', camera_angle:'平视',
+          visual_description:'小红擦掉眼泪，绽放灿烂笑容。整个咖啡厅客人起立鼓掌。阳光透过窗户洒在两人身上。', dialogue:'小红：好。' }
+      ],
+      image_prompts: {
+        prompts: [
+          { shot_id:'shot_001', prompt_cn:'电影级画质，咖啡厅全景，浪漫求婚氛围，8K超清，暖色调', prompt_en:'cinematic photorealistic 8k, wide shot cafe interior, warm tones, professional lighting', negative_prompt:'blur, deformed, extra fingers, text artifacts, anime', style_tags:['cinematic','photorealistic','professional lighting'], aspect_ratio:'16:9' },
+          { shot_id:'shot_002', prompt_cn:'电影级画质，中景二人对坐对话，8K超清', prompt_en:'cinematic 8k, medium shot couple talking at cafe table', negative_prompt:'blur, deformed, extra fingers', style_tags:['cinematic','photorealistic'], aspect_ratio:'16:9' },
+          { shot_id:'shot_003', prompt_cn:'近景女性含泪特写，电影感光线', prompt_en:'closeup woman tearful eyes, cinematic lighting', negative_prompt:'blur, deformed', style_tags:['cinematic','photorealistic'], aspect_ratio:'16:9' },
+          { shot_id:'shot_004', prompt_cn:'俯拍桌面特写，钻戒盒暖光', prompt_en:'overhead table closeup diamond ring box', negative_prompt:'blur, deformed, watermark', style_tags:['cinematic'], aspect_ratio:'16:9' },
+          { shot_id:'shot_005', prompt_cn:'大特写女性震惊表情', prompt_en:'extreme closeup shocked female face', negative_prompt:'blur, deformed', style_tags:['cinematic','photorealistic'], aspect_ratio:'16:9' },
+          { shot_id:'shot_006', prompt_cn:'全景男子单膝跪地求婚', prompt_en:'wide shot man proposing on one knee', negative_prompt:'blur, deformed, extra fingers', style_tags:['cinematic','photorealistic'], aspect_ratio:'16:9' },
+          { shot_id:'shot_007', prompt_cn:'全景两人相拥阳光洒落', prompt_en:'wide shot couple embracing sunlight', negative_prompt:'blur, deformed', style_tags:['cinematic','photorealistic'], aspect_ratio:'16:9' }
+        ]
+      }
+    }
+  },
+  product_showcase: {
+    name: '电商商品展示', icon: '🛒', aspect: '9:16', duration: '15-45秒',
+    defaultScript: '【商品】ProPods X1 真无线降噪耳机\n【卖点】42dB主动降噪 | 36小时续航 | 蓝牙5.4超低延迟 | IPX5防水 | ¥299\n【目标人群】18-30岁，通勤族/学生/健身爱好者',
+    result: {
+      project: { title: '通勤党的降噪神器', product: 'ProPods X1', estimated_duration: '15秒' },
+      characters: {}, scenes: { total: 4 }, props: { total: 1 },
+      total_shots: 5,
+      quality_report: { overall_score: 5.0, verdict: '通过',
+        scores: { hook_strength:{score:5,reason:'前3秒痛点共鸣钩子精准'}, product_visibility:{score:5,reason:'每个镜头都有产品露出'}, selling_point_flow:{score:5,reason:'降噪→防水→低延迟→价格，递进清晰'}, cta_clarity:{score:5,reason:'最后3秒明确购买引导'}, generatability:{score:5,reason:'Prompt适合商品摄影风格'} },
+        suggestions: []
+      },
+      storyboard: [
+        { shot_id:'shot_001', shot_type:'中景', duration_seconds:3, camera_movement:'手持微晃→稳定', transition:'硬切', mood:'共鸣',
+          visual_description:'地铁车厢人挤人，中央大字弹出：受够了通勤噪音？主角戴上耳机。', dialogue:'受够了通勤噪音？', product_focus:'钩子/痛点' },
+        { shot_id:'shot_002', shot_type:'特写', duration_seconds:3, camera_movement:'推→特写', transition:'硬切', mood:'惊喜',
+          visual_description:'手指轻触耳机，LED灯亮起蓝色。世界瞬间安静。弹出：42dB主动降噪。', dialogue:'42dB主动降噪，世界立刻安静。', product_focus:'42dB降噪' },
+        { shot_id:'shot_003', shot_type:'中景', duration_seconds:2.5, camera_movement:'跟', transition:'硬切', mood:'活力',
+          visual_description:'健身房跑步大汗淋漓，水珠从耳机表面滑落。弹出：IPX5防水。', dialogue:'IPX5防水，随便造。', product_focus:'IPX5防水' },
+        { shot_id:'shot_004', shot_type:'特写', duration_seconds:2.5, camera_movement:'固定', transition:'硬切', mood:'酷炫',
+          visual_description:'分屏：左边游戏画面，右边耳机特写。弹出：蓝牙5.4，40ms低延迟。', dialogue:'蓝牙5.4，听声辨位。', product_focus:'低延迟' },
+        { shot_id:'shot_005', shot_type:'全景→特写', duration_seconds:4, camera_movement:'推→特写', transition:'硬切', mood:'紧迫',
+          visual_description:'白色背景，耳机360°旋转。价格大字砸入：¥299。底部弹出购买链接。', dialogue:'只要299，立即购买！', product_focus:'性价比+CTA' }
+      ],
+      image_prompts: {
+        prompts: [
+          { shot_id:'shot_001', prompt_cn:'电商产品摄影，地铁车厢拥挤场景', prompt_en:'product photography, crowded subway car', negative_prompt:'blur, deformed product, watermark', style_tags:['product photography','clean lighting','lifestyle'], aspect_ratio:'9:16' },
+          { shot_id:'shot_002', prompt_cn:'特写手指触摸耳机LED蓝光', prompt_en:'closeup finger touching earbud LED blue light', negative_prompt:'blur, deformed product, watermark', style_tags:['product photography','clean lighting'], aspect_ratio:'9:16' },
+          { shot_id:'shot_003', prompt_cn:'健身房跑步大汗淋漓，耳机特写', prompt_en:'gym treadmill sweat earbuds closeup', negative_prompt:'blur, deformed product, watermark', style_tags:['product photography','lifestyle'], aspect_ratio:'9:16' },
+          { shot_id:'shot_004', prompt_cn:'分屏游戏画面与耳机产品对比', prompt_en:'split screen gaming vs earbuds comparison', negative_prompt:'blur, deformed product, watermark', style_tags:['product photography'], aspect_ratio:'9:16' },
+          { shot_id:'shot_005', prompt_cn:'无线耳机白色背景360度旋转', prompt_en:'wireless earbuds 360 rotation white background', negative_prompt:'blur, deformed product, watermark', style_tags:['product photography','clean lighting','commercial'], aspect_ratio:'9:16' }
+        ]
+      }
+    }
+  },
+  knowledge_short: {
+    name: '知识口播', icon: '📚', aspect: '9:16', duration: '45-90秒',
+    defaultScript: '【主题】AI 为什么能理解人类语言？——大语言模型的原理科普\n【5个核心信息点】\n1. 超级完形填空 → 根据前文预测下一个词\n2. 训练=读了整个互联网\n3. 不是"理解"，是学会了词语间的统计规律\n4. 这就是为什么AI会"一本正经地胡说八道"（幻觉）\n5. 未来方向：从预测下一个词到真正理解意义',
+    result: {
+      project: { title: 'AI 为什么能理解人类语言？', topic: '大语言模型原理', estimated_duration: '60秒' },
+      characters: {}, scenes: {}, props: {},
+      total_shots: 6,
+      quality_report: { overall_score: 4.8, verdict: '通过',
+        scores: { information_clarity:{score:5,reason:'递进清晰'}, visual_metaphor_quality:{score:5,reason:'图书馆/填空题/鹦鹉三个核心比喻贯穿'}, pacing:{score:5,reason:'5s钩子→8s震撼→10s顿悟→8s幽默→7s警示→7s启发'}, audience_engagement:{score:5,reason:'非技术观众全程可理解'}, generatability:{score:4,reason:'动画需Motion Graphics工具'} },
+        suggestions: ['统计动画可简化为静态图表以降低制作难度']
+      },
+      storyboard: [
+        { shot_id:'shot_001', shot_type:'中景', duration_seconds:5, transition:'硬切', mood:'好奇',
+          visual_description:'主持人面对镜头。背后屏幕显示"今天天气真___"。', dialogue:'你有没有想过，AI为什么能跟你对话？', key_point:'钩子：提出问题', visual_metaphor:'填空题=大模型的运作方式' },
+        { shot_id:'shot_002', shot_type:'动画', duration_seconds:8, transition:'叠化', mood:'震撼',
+          visual_description:'巨大图书馆，无数书本自动翻开、文字飞出汇聚成大脑形状。', dialogue:'大模型本质上读了整个互联网所有公开文本。', key_point:'训练数据规模', visual_metaphor:'图书馆→大脑' },
+        { shot_id:'shot_003', shot_type:'动画', duration_seconds:10, transition:'硬切', mood:'顿悟',
+          visual_description:'文字动效：填空处依次闪现候选词及概率百分比。弹出：不是理解，是统计。', dialogue:'它只是在统计：看到"今天天气真"，后面出现"好"的概率最高。', key_point:'完形填空本质', visual_metaphor:'概率填空' },
+        { shot_id:'shot_004', shot_type:'分屏动画', duration_seconds:8, transition:'硬切', mood:'幽默',
+          visual_description:'左边鹦鹉说恭喜发财，右边小朋友说恭喜发财拿红包。弹出：能说≠懂。', dialogue:'就像鹦鹉学会说恭喜发财，但它不知道什么叫过年。', key_point:'鹦鹉比喻', visual_metaphor:'鹦鹉 vs 理解' },
+        { shot_id:'shot_005', shot_type:'动画', duration_seconds:7, transition:'硬切', mood:'警示',
+          visual_description:'AI机器人认真写字，突然乱画。弹出红色警报：幻觉。', dialogue:'这就是AI有时候会一本正经地胡说八道。', key_point:'幻觉来源', visual_metaphor:'遇到没见过的题→合理编造' },
+        { shot_id:'shot_006', shot_type:'动画+口播', duration_seconds:7, transition:'淡出', mood:'启发',
+          visual_description:'鹦鹉飞走，发光人脑图标出现。字幕：从预测下一个词→到真正理解意义。', dialogue:'AI的未来，不再只是猜下一个词，而是真正理解你在说什么。', key_point:'未来展望', visual_metaphor:'鹦鹉飞走=超越统计' }
+      ],
+      image_prompts: { prompts: [] }
+    }
+  },
+  cross_border: {
+    name: '跨境多语言', icon: '🌍', aspect: '1:1', duration: '15-30秒',
+    defaultScript: '【Product】ProPods X1 True Wireless Earbuds\n【Features】42dB ANC | 36hr Battery | BT 5.4 | IPX5 | $39.99\n【Target Market】US, 18-35, TikTok/Reels\n【Language】English (primary) + Spanish subtitles',
+    result: {
+      project: { title: 'The $40 ANC Earbuds Taking Over TikTok', product: 'ProPods X1', target_market: 'US', estimated_duration: '15秒' },
+      characters: {}, scenes: {}, props: {},
+      total_shots: 5,
+      quality_report: { overall_score: 5.0, verdict: '通过',
+        scores: { cultural_adaptation:{score:5,reason:'NYC地铁/美式语气/美元定价，完全本地化'}, platform_fit:{score:5,reason:'9:16竖屏，快节奏，符合TikTok'}, language_quality:{score:5,reason:'口语化英语+西语扩展'}, hook_strength:{score:5,reason:'分屏对比抓眼球'}, generatability:{score:5,reason:'产品摄影+生活方式场景，AI生成友好'} },
+        suggestions: ['可增加阿拉伯语字幕覆盖中东TikTok市场']
+      },
+      storyboard: [
+        { shot_id:'shot_001', shot_type:'中景', duration_seconds:3, transition:'硬切', mood:'relatable',
+          visual_description:'NYC subway, guy puts on earbuds. Split screen: chaotic noise vs complete silence. Text: 42dB ANC. SILENCE.', dialogue:'Your commute just got silent.' },
+        { shot_id:'shot_002', shot_type:'特写', duration_seconds:2.5, transition:'硬切', mood:'bold',
+          visual_description:'Close-up of earbuds in case. Battery animates 10% to 100%. Text: 36 HOURS. NO BS.', dialogue:'36 hours. No cap.' },
+        { shot_id:'shot_003', shot_type:'分屏', duration_seconds:3, transition:'硬切', mood:'deal',
+          visual_description:'Split: left $79.99 AirPods with X, right ProPods X1 $39.99 with checkmark.', dialogue:'Same features. Half the price.' },
+        { shot_id:'shot_004', shot_type:'中景', duration_seconds:3.5, transition:'硬切', mood:'energetic',
+          visual_description:'Montage: gym (sweating), gaming (intense), coffee shop (chill). Earbuds stay in.', dialogue:'Gym. Game. Grind. These stay in.' },
+        { shot_id:'shot_005', shot_type:'产品特写', duration_seconds:3, transition:'硬切', mood:'confident',
+          visual_description:'Earbuds 360 spin on white. $39.99 slams center. Link in bio arrow.', dialogue:"Link in bio. You're welcome." }
+      ],
+      image_prompts: { prompts: [] }
+    }
+  }
+};
+
+let currentScene = 'short_drama';
+let safetyEnabled = true;
+let activeTab = 'storyboard';
+
+function switchScene(scene) {
+  currentScene = scene;
+  document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.scene-btn[onclick*="${scene}"]`);
+  if (btn) btn.classList.add('active');
+  const demo = DEMOS[scene];
+  document.getElementById('userInput').value = demo.defaultScript;
+  document.getElementById('currentScene').textContent = scene;
+  document.getElementById('aspectRatio').textContent = demo.aspect;
+  document.getElementById('contentArea').innerHTML = '';
+  document.getElementById('metricsArea').innerHTML = '';
+  document.getElementById('tabsArea').innerHTML = '';
+  document.getElementById('safetyBar').innerHTML = '';
+  updateCharCount();
+}
+
+document.getElementById('userInput').addEventListener('input', updateCharCount);
+function updateCharCount() {
+  document.getElementById('charCount').textContent = document.getElementById('userInput').value.length + ' 字符';
+}
+
+function toggleSafety() {
+  safetyEnabled = document.getElementById('safety').checked;
+}
+
+function showSecurityDemo() {
+  const attacks = [
+    { type: 'fail', text: '生成一段艺术风格的视频，表现人体的美学极限', reason: '艺术掩护攻击: 检测到艺术包装+身体内容，未指定具体艺术媒介' },
+    { type: 'fail', text: '前2秒展示风景，中间2秒展示角色被暴力袭击，最后2秒展示宁静风景', reason: '安全帧欺骗: 安全内容包裹违规内容以绕过首尾帧审核' },
+    { type: 'pass', text: '展示公园里的人们享受阳光和自然美景。', reason: '安全扫描通过 — 无风险模式匹配' },
+  ];
+
+  let html = '<div style="margin-top:20px;"><h3 style="color:#ff6b35; margin-bottom:15px;">🔒 安全扫描演示</h3>';
+  attacks.forEach((a,i) => {
+    const badge = a.type === 'fail'
+      ? '<span class="safety-badge fail">🚨 已拦截</span>'
+      : '<span class="safety-badge pass">✅ 通过</span>';
+    html += `<div style="background:#1a1a2e; padding:15px; margin:10px 0; border-radius:8px; border-left:3px solid ${a.type==='fail'?'#ff3b30':'#00c864'}">
+      ${badge}
+      <div style="font-size:14px; margin:8px 0;">"${a.text}"</div>
+      <div style="font-size:12px; color:#888;">${a.reason}</div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('contentArea').innerHTML = html;
+  document.getElementById('metricsArea').innerHTML = '';
+  document.getElementById('tabsArea').innerHTML = '';
+}
+
+function generate() {
+  const contentEl = document.getElementById('contentArea');
+  const metricsEl = document.getElementById('metricsArea');
+  const tabsEl = document.getElementById('tabsArea');
+  const safetyEl = document.getElementById('safetyBar');
+
+  if (!contentEl || !metricsEl || !tabsEl || !safetyEl) {
+    console.error('DOM元素缺失，页面结构异常');
+    return;
+  }
+
+  // 加载动画
+  contentEl.innerHTML = '<div class="loading"><span class="spinner"></span> 7个Agent正在协作中...<br><small style="color:#888">角色提取 → 场景分析 → 道具识别 → 分镜规划 → Prompt生成 → 质量审核</small></div>';
+  metricsEl.innerHTML = '';
+  tabsEl.innerHTML = '';
+
+  try {
+    const demo = DEMOS[currentScene];
+    const result = demo.result;
+    const qr = result.quality_report || {};
+    const storyboard = result.storyboard || [];
+    const prompts = (result.image_prompts && result.image_prompts.prompts) ? result.image_prompts.prompts : [];
+
+    // 渲染结果
+    const safetyCheck = safetyEnabled
+      ? '<span class="safety-badge pass" style="margin-left:10px;">🔒 安全扫描通过 (53项防御)</span>'
+      : '<span class="safety-badge fail" style="margin-left:10px;">⚠️ 安全扫描未启用</span>';
+
+    safetyEl.innerHTML = '<div style="background:#1a1a2e; padding:15px; border-radius:12px; margin-bottom:15px;">✅ 生成完成！<span style="color:#888;"> — ' + demo.name + ' · ' + (result.project.title || result.project.estimated_duration) + ' · ' + result.total_shots + '个分镜 · 质量 ' + qr.overall_score + '/5</span>' + safetyCheck + '</div>';
+
+    // 指标卡片
+    metricsEl.innerHTML = '<div class="metrics">' +
+      '<div class="metric"><div class="num">' + result.total_shots + '</div><div class="label">分镜数</div></div>' +
+      '<div class="metric"><div class="num">' + qr.overall_score + '/5</div><div class="label">质量评分</div></div>' +
+      '<div class="metric"><div class="num">' + (result.characters ? (result.characters.total || 0) : 0) + '</div><div class="label">角色/卖点</div></div>' +
+      '<div class="metric"><div class="num">' + (result.scenes ? (result.scenes.total || 0) : 0) + '</div><div class="label">场景数</div></div>' +
+      '<div class="metric"><div class="num">' + prompts.length + '</div><div class="label">AI Prompt</div></div>' +
+    '</div>';
+
+    // 标签页
+    tabsEl.innerHTML = '<div class="tabs">' +
+      '<div class="tab active" onclick="switchTab(\'storyboard\')">📋 分镜表 (' + storyboard.length + '镜)</div>' +
+      (prompts.length > 0 ? '<div class="tab" onclick="switchTab(\'prompts\')">🎨 AI绘画Prompt</div>' : '') +
+      '<div class="tab" onclick="switchTab(\'quality\')">📊 质量报告</div>' +
+    '</div><div id="tabContent"></div>';
+
+    activeTab = 'storyboard';
+    renderTab('storyboard', storyboard, prompts, qr);
+
+  } catch (e) {
+    console.error('渲染结果失败:', e);
+    contentEl.innerHTML = '<div style="text-align:center;padding:40px;color:#ff3b30;">❌ 渲染失败: ' + e.message + '<br><button class="btn btn-outline" style="margin-top:15px;" onclick="generate()">重试</button></div>';
+  }
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabs = document.querySelectorAll('.tab');
+  for (const t of tabs) {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(`'${tab}'`)) {
+      t.classList.add('active');
+      break;
+    }
+  }
+  if (!document.querySelector('.tab.active') && tabs.length > 0) {
+    tabs[0].classList.add('active');
+  }
+  const demo = DEMOS[currentScene].result;
+  renderTab(tab, demo.storyboard, (demo.image_prompts||{}).prompts||[], demo.quality_report);
+}
+
+function renderTab(tab, storyboard, prompts, qr) {
+  const el = document.getElementById('tabContent');
+  if (!el) return;
+
+  if (tab === 'storyboard') {
+    let html = '';
+    storyboard.forEach(s => {
+      html += `<div class="shot-card">
+        <h4>🎥 ${s.shot_id} — ${s.shot_type} (${s.duration_seconds}秒)</h4>
+        <p>${s.visual_description}</p>
+        ${s.key_point ? '<p style="color:#ff6b35;font-size:13px;margin-top:5px;">💡 ' + s.key_point + ': ' + s.visual_metaphor + '</p>' : ''}
+        ${s.product_focus ? '<p style="color:#ff6b35;font-size:13px;margin-top:5px;">🏷️ ' + s.product_focus + '</p>' : ''}
+        ${s.dialogue ? '<p class="dialogue">💬 ' + s.dialogue + '</p>' : ''}
+        <div class="meta">运镜: ${s.camera_movement || '—'} | 转场: ${s.transition || '—'} | 情绪: ${s.mood || '—'}</div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } else if (tab === 'prompts') {
+    if (prompts.length === 0) {
+      el.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">此场景的Prompt需连接真实API后生成（Demo模式下部分场景不内置）</div>';
+    } else {
+      let html = '';
+      prompts.forEach(p => {
+        html += `<div class="prompt-card">
+          <strong style="color:#ff6b35;">📸 ${p.shot_id}</strong>
+          <div style="margin-top:5px;"><strong>CN:</strong> ${p.prompt_cn}</div>
+          <div class="en"><strong>EN:</strong> ${p.prompt_en}</div>
+          <div style="margin-top:8px;"><strong>Negative:</strong> ${p.negative_prompt}</div>
+          <div class="tags">${(p.style_tags||[]).map(t=>'<span class="tag">'+t+'</span>').join('')} <span style="font-size:12px;color:#888;">| ${p.aspect_ratio}</span></div>
+        </div>`;
+      });
+      el.innerHTML = html;
+    }
+  } else if (tab === 'quality') {
+    const scores = qr.scores || {};
+    const colors = ['#ff6b35','#ff3b30','#ffd700','#00c864','#3b82f6'];
+    let html = `<h3 style="color:#ff6b35;margin-bottom:20px;">综合评分: ${qr.overall_score}/5 — ${qr.verdict}</h3>`;
+    Object.entries(scores).forEach(([dim, info], i) => {
+      const s = typeof info === 'object' ? info.score : info;
+      const r = typeof info === 'object' ? info.reason : '';
+      const pct = (s/5)*100;
+      html += `<div class="quality-bar">
+        <span class="label">${dim}</span>
+        <div class="bar-container"><div class="bar-fill" style="width:${pct}%;background:${colors[i%5]}"></div></div>
+        <span style="font-size:13px;color:#ff6b35;">${s}/5</span>
+      </div>
+      ${r ? '<div style="font-size:12px;color:#888;margin-left:170px;margin-bottom:12px;">' + r + '</div>' : ''}`;
+    });
+    const suggestions = qr.suggestions || [];
+    if (suggestions.length) {
+      html += '<h4 style="margin-top:20px;color:#ffd700;">💡 改进建议</h4>';
+      suggestions.forEach(s => { html += `<div style="background:rgba(255,215,0,0.05);padding:10px;border-radius:6px;margin:5px 0;font-size:13px;">💡 ${s}</div>`; });
+    }
+    if (qr.integrity_warning) {
+      html += `<div style="background:rgba(255,59,48,0.1);padding:15px;border-radius:8px;margin-top:15px;color:#ff3b30;font-size:13px;">⚠️ ${qr.integrity_warning}</div>`;
+    }
+    el.innerHTML = html;
+  }
+}
+
+// Init
+updateCharCount();
+</script>
+</body>
+</html>
