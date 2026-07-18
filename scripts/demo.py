@@ -519,12 +519,45 @@ DEMO_MAP = {
 }
 
 
+def _inject_user_input(result: dict, script_text: str) -> dict:
+    """将用户输入注入 Demo 结果，使输出反映真实输入而非写死示例"""
+    import re as _re
+
+    info = _preprocess(script_text)
+
+    # 从用户输入第一行提取标题
+    first_line = script_text.strip().split('\n')[0].strip()
+    first_line = _re.sub(r'【[^】]*】', '', first_line).strip()
+
+    # 提取角色名（匹配 "XXX（动作）：对话" 或 "XXX：" 模式）
+    char_names = list(set(_re.findall(r'(\S{1,8})(?:（[^）]*）)?(?:\s*):', script_text)))
+    if not char_names:
+        char_names = list(set(_re.findall(r'(?:^|\n)(\S{1,8})(?:（[^）]*）)?[：:]', script_text)))
+
+    # 注入到结果
+    if 'project' in result:
+        if first_line and len(first_line) < 60:
+            result['project']['user_title'] = first_line
+        result['project']['estimated_duration'] = f"{info['estimated_minutes'] * 60:.0f}秒"
+        result['project']['input_chars'] = info['chars']
+
+    result['user_input'] = {
+        'chars': info['chars'],
+        'lines': info['lines'],
+        'estimated_minutes': info['estimated_minutes'],
+        'preview': script_text[:300],
+        'detected_characters': char_names[:10] if char_names else [],
+    }
+
+    return result
+
+
 def run_demo_pipeline(script_text: str = None, scene: str = "short_drama") -> dict:
     """
-    运行 Demo 流水线 —— 兼容旧接口
+    运行 Demo 流水线
 
     Args:
-        script_text: 剧本/文案（Demo模式下不使用，保留兼容性）
+        script_text: 剧本/文案（有值时注入结果，反映用户真实输入）
         scene: 场景类型
 
     Returns:
@@ -538,16 +571,25 @@ def run_demo_pipeline(script_text: str = None, scene: str = "short_drama") -> di
     print("=" * 60)
     print(f"  AI 原生视频生产管线 — Demo 模式")
     print(f"  场景: {DEMO_MAP.get(scene, DEMO_MAP['short_drama'])[0]}")
-    print(f"  (无需 API Key，使用内置示例数据)")
+    if script_text:
+        info = _preprocess(script_text)
+        print(f"  用户输入: {info['chars']}字符, {info['lines']}行, 约{info['estimated_minutes']}分钟")
+    print(f"  (无需 API Key，使用内置模板结构)")
     print("=" * 60)
 
     result = demo_func()
+
+    # 注入用户输入，使分镜模板反映真实内容
+    if script_text:
+        result = _inject_user_input(result, script_text)
 
     elapsed = time.time() - t0
     print(f"\n  总耗时: {elapsed:.1f}秒")
     print(f"  场景: {DEMO_MAP.get(scene, ('?','?'))[0]}")
     print(f"  分镜数: {result['total_shots']}")
     print(f"  质量评分: {result['quality_report']['overall_score']}/5 ({result['quality_report']['verdict']})")
+    if script_text:
+        print(f"  用户输入: {result['user_input']['chars']}字符已注入")
     print("=" * 60)
 
     return result

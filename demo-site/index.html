@@ -387,8 +387,14 @@ function generate() {
     const qr = result.quality_report || {};
     const storyboard = result.storyboard || [];
     const prompts = (result.image_prompts || {}).prompts || [];
+    const userInput = result.user_input || null;
+    const userTitle = (result.project || {}).user_title || null;
 
-    // Safety badge
+    // 保存以便 tab 切换时使用
+    window._lastResult = result;
+    window._lastStoryboard = storyboard;
+    window._lastPrompts = prompts;
+    window._lastQR = qr;
     const demoBadge = isDemo
       ? '<span class="safety-badge fail" style="margin-left:10px;">⚠️ Demo 模式 — 后端未连接</span>'
       : '';
@@ -402,13 +408,16 @@ function generate() {
     </div>`;
 
     // Metrics
+    const detectedChars = (userInput && userInput.detected_characters) || [];
     metricsEl.innerHTML = `<div class="metrics">
-      <div class="metric"><div class="num">${userInput.length}</div><div class="label">输入字符</div></div>
+      <div class="metric"><div class="num">${userInput ? userInput.chars : '—'}</div><div class="label">输入字符</div></div>
       <div class="metric"><div class="num">${storyboard.length}</div><div class="label">分镜数</div></div>
       <div class="metric"><div class="num">${qr.overall_score || '—'}/5</div><div class="label">质量评分</div></div>
-      <div class="metric"><div class="num">${result.characters?.total || (storyboard.length > 0 ? '—' : 0)}</div><div class="label">角色数</div></div>
+      <div class="metric"><div class="num">${detectedChars.length || result.characters?.total || '—'}</div><div class="label">检测角色</div></div>
       <div class="metric"><div class="num">${prompts.length}</div><div class="label">AI Prompt</div></div>
-    </div>`;
+    </div>
+    ${detectedChars.length ? '<div style="background:#1a1a2e;padding:12px 20px;border-radius:8px;margin-top:12px;font-size:13px;color:#ff6b35;">🔍 检测到角色: ' + detectedChars.join('、') + '</div>' : ''}
+    ${userTitle ? '<div style="background:#1a1a2e;padding:12px 20px;border-radius:8px;margin-top:8px;font-size:13px;color:#aaa;">📌 用户标题: ' + userTitle + '</div>' : ''}`;
 
     // Tabs
     tabsEl.innerHTML = `<div class="tabs">
@@ -482,8 +491,11 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   event.target.classList.add('active');
-  const demo = DEMOS[currentScene].result;
-  renderTab(tab, demo.storyboard, (demo.image_prompts||{}).prompts||[], demo.quality_report);
+  // Use last API/demo result if available, else fallback to hardcoded DEMOS
+  const sb = window._lastStoryboard || DEMOS[currentScene].result.storyboard || [];
+  const pr = window._lastPrompts || (DEMOS[currentScene].result.image_prompts || {}).prompts || [];
+  const qr = window._lastQR || DEMOS[currentScene].result.quality_report || {};
+  renderTab(tab, sb, pr, qr);
 }
 
 function renderTab(tab, storyboard, prompts, qr) {
@@ -522,7 +534,23 @@ function renderTab(tab, storyboard, prompts, qr) {
   } else if (tab === 'quality') {
     const scores = qr.scores || {};
     const colors = ['#ff6b35','#ff3b30','#ffd700','#00c864','#3b82f6'];
-    let html = `<h3 style="color:#ff6b35;margin-bottom:20px;">综合评分: ${qr.overall_score}/5 — ${qr.verdict}</h3>`;
+    let html = `<h3 style="color:#ff6b35;margin-bottom:20px;">综合评分: ${qr.overall_score || '—'}/5 — ${qr.verdict || '—'}</h3>`;
+
+    // 展示用户输入分析（如果来自真实输入）
+    const ui = (window._lastResult || {}).user_input;
+    if (ui) {
+      html += `<div style="background:#0d1117;padding:15px;border-radius:8px;margin-bottom:20px;border-left:3px solid #ff6b35;">
+        <h4 style="color:#ffd700;margin-bottom:10px;">📝 用户输入分析</h4>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:13px;">
+          <div>字符数: <span style="color:#ff6b35;">${ui.chars}</span></div>
+          <div>行数: <span style="color:#ff6b35;">${ui.lines}</span></div>
+          <div>预估时长: <span style="color:#ff6b35;">${ui.estimated_minutes}分钟</span></div>
+        </div>
+        ${ui.detected_characters && ui.detected_characters.length ? '<div style="margin-top:10px;font-size:13px;">检测角色: <span style="color:#ff6b35;">' + ui.detected_characters.join('、') + '</span></div>' : ''}
+        <div style="margin-top:8px;font-size:12px;color:#888;max-height:60px;overflow:hidden;">${ui.preview}</div>
+      </div>`;
+    }
+
     Object.entries(scores).forEach(([dim, info], i) => {
       const s = typeof info === 'object' ? info.score : info;
       const r = typeof info === 'object' ? info.reason : '';
