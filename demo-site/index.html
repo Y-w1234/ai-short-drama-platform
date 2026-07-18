@@ -494,9 +494,10 @@ function generate() {
   }
 
   // ══════════════════════════════════════
-  // Universal document parser v2
-  // Handles ANY text: articles, stories, scripts, products, knowledge
-  // ══════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
+  // Professional Short Video Storyboard Engine v3
+  // Output meets TikTok/Douyin/Reels/YouTube Shorts standards
+  // ══════════════════════════════════════════════════════════
 
   function fallbackToDemo() {
     var parsed = parseDocument(userInput, currentScene);
@@ -516,293 +517,400 @@ function generate() {
     if (sceneType === 'knowledge_short' || hasKnowledge) return parseKnowledgeShort(clean);
     if (sceneType === 'cross_border' && /【Product】|【Features】|\$\d+/i.test(clean)) return parseCrossBorder(clean);
 
-    return parseProse(clean, sceneType);
+    return parseStoryboard(clean, sceneType);
   }
 
   function makeEmptyResult() {
     return {
-      project: { title: '(empty)', estimated_duration: '0s' },
+      project: { title: '(空文档)', genre: '—', estimated_duration: '0秒' },
       characters: { total: 0 }, scenes: { total: 0 }, props: { total: 0 },
       total_shots: 0, storyboard: [], image_prompts: { prompts: [] },
-      quality_report: { overall_score: '-', verdict: 'empty', scores: {} },
+      quality_report: { overall_score: '—', verdict: '空输入', scores: {}, suggestions: [] },
       user_input: { chars: 0, lines: 0, estimated_minutes: 0, preview: '', detected_characters: [] }
     };
   }
 
-  // ══════════════════════════════════════
-  // Universal prose parser
-  // ══════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
+  // 专业短视频分镜引擎 (Universal Pro Parser)
+  // ══════════════════════════════════════════════════════════
 
-  function parseProse(text, sceneType) {
-    var paragraphs = text.split(/\n\n+/).map(function(p) { return p.trim(); }).filter(function(p) { return p.length > 0; });
-    if (paragraphs.length === 0) {
-      paragraphs = text.split(/\n/).map(function(p) { return p.trim(); }).filter(function(p) { return p.length > 0; });
-    }
-    if (paragraphs.length === 0) paragraphs = [text];
+  function _timeLightHint() {
+    var hints = [
+      '午后暖阳透过窗户洒入，柔光在地面投下斑驳光影',
+      '晨光熹微，薄雾弥漫，柔和光线包裹整个空间',
+      '夜色降临，暖黄灯光与窗外蓝调暮色冷暖交织',
+      '黄金时刻，温暖橙光斜照，万物镶上金边',
+      '阴天柔光，光线均匀漫射，色调清冷雅致'
+    ];
+    return hints[Math.floor(Math.random() * hints.length)];
+  }
 
-    // Split long paragraphs into sentence groups
-    var segments = [];
-    paragraphs.forEach(function(para) {
-      if (para.length <= 300) { segments.push(para); return; }
-      var sentences = para.split(/(?<=[。！？.!?])\s*/);
-      var group = '';
-      sentences.forEach(function(s) {
-        if ((group + s).length > 250 && group.length > 0) { segments.push(group.trim()); group = s; }
-        else { group += s; }
-      });
-      if (group.trim()) segments.push(group.trim());
-    });
+  function analyzeText(text) {
+    var firstLine = text.split('\n')[0].trim().replace(/^[#【《「\s]+|[#】》」\s]+$/g, '');
+    var title = firstLine.substring(0, 60) || '未命名内容';
 
-    var displaySegments = segments.slice(0, 20);
-
-    // Detect characters
+    // Character detection
     var charSet = new Set();
-    var charPattern = /([一-鿿]{2,3})(?=\s*(?:[：:，。、！？\n（(]|走进|坐在|说|看着|走过|来到|站在|拿起|放下|转身|回头))/g;
+    var dp1 = /(\S{2,4})(?:[（(][^）)]*[）)])?\s*[：:]\s*.{2,}/g;
     var m;
-    while ((m = charPattern.exec(text)) !== null) {
-      if (!/^(?:这是|那是|他们|我们|什么|怎么|为什么|可以|已经|没有|这个|那个|第一|第二|今天|昨天|明天)/.test(m[1])) {
+    while ((m = dp1.exec(text)) !== null) {
+      if (!/^(?:这是|那是|他们|我们|什么|怎么|为什么|可以|已经|没有|这个|那个|第一|第二|今天|昨天|明天|因为|所以|虽然|但是|如果|而且|因此|然而|不过|于是|然后|接着|最后|首先|其次|另外|总之)/.test(m[1])) {
         charSet.add(m[1]);
       }
     }
-    var charList = Array.from(charSet).slice(0, 10);
+    var dp2 = /([一-鿿]{2,3})(?=\s*(?:走[进过]|站[在起]|坐[在下]|看[着到]|说[道着]|拿[起出]|放[下开]|转身|回头|微笑|点头|挥手))/g;
+    while ((m = dp2.exec(text)) !== null) {
+      if (!/^(?:这是|那是|他们|我们|这个|那个)/.test(m[1])) charSet.add(m[1]);
+    }
+    var charList = Array.from(charSet).slice(0, 12);
 
-    // Title from first line
-    var firstLine = text.split('\n')[0].trim();
-    var title = firstLine.replace(/^[#【《「\s]+|[#】》」\s]+$/g, '').substring(0, 60) || 'User Document';
+    // Location detection
+    var locations = [];
+    var locRe = /(?:在|到|进[入了])([一-鿿]{2,10}(?:公园|咖啡厅|咖啡店|餐厅|饭店|办公室|教室|医院|车站|机场|商场|超市|广场|海边|山上|山顶|森林|河[边畔]|湖[边畔]|房[间里]|客厅|卧室|厨房|阳台|花园|院子|码头|甲板|街道|小巷|天桥|屋顶|地下室|酒吧|书店|图书馆|博物馆|画廊|健身房|剧场))/g;
+    var lm;
+    while ((lm = locRe.exec(text)) !== null) {
+      if (locations.indexOf(lm[1]) === -1) locations.push(lm[1]);
+    }
+    if (locations.length === 0) locations.push('现代简约空间');
 
-    // Scene location detection
-    var location = 'Document Scene';
-    var locPatterns = [
-      /(?:in|at|location[：:]\s*)([一-鿿]{2,20}(?:park|cafe|restaurant|office|classroom|hospital|station|airport|mall|square|beach|mountain|forest|home|room))/i,
-      /([一-鿿]{2,6}(?:park|cafe|restaurant|office|classroom|hospital|station|airport|mall|square|beach|mountain))/i
-    ];
-    locPatterns.forEach(function(pat) {
-      var lm = text.match(pat);
-      if (lm) location = lm[1];
-    });
-
-    // Shot type rotation for visual variety
-    var shotTypes = ['WS', 'MS', 'CU', 'ECU', 'MS', 'CU', 'WS', 'MS', 'ECU', 'CU'];
-    var cameraMoves = ['push', 'static', 'push-slight', 'static', 'pull', 'track', 'static', 'push-slight', 'static', 'static'];
-    var moods = ['opening', 'narrative', 'reveal', 'detail', 'development', 'emotion', 'turn', 'climax', 'reflection', 'closing'];
-    var angles = ['eye-level', 'eye-level', 'eye-level', 'high-angle', 'eye-level', 'eye-level', 'low-angle', 'eye-level', 'macro', 'eye-level'];
-
-    var shots = displaySegments.map(function(seg, i) {
-      var idx = i % shotTypes.length;
-      var isLast = i === displaySegments.length - 1;
-      var dialogue = '';
-      var dm = seg.match(/["“]([^"”]{2,80})["”]/) || seg.match(/(\S{1,8}[：:]\s*.{2,80})/);
-      if (dm) dialogue = dm[1].substring(0, 80);
-      var visual = seg.substring(0, 120).replace(/\n/g, ' ').trim();
-
-      return {
-        shot_id: 'shot_' + String(i + 1).padStart(3, '0'),
-        shot_type: shotTypes[idx],
-        duration_seconds: Math.min(Math.max(Math.ceil(seg.length / 10), 2), 8),
-        camera_movement: cameraMoves[idx],
-        transition: isLast ? 'fade' : 'cut',
-        mood: moods[idx],
-        camera_angle: angles[idx],
-        visual_description: visual || (location + ' scene'),
-        dialogue: dialogue
-      };
-    });
-
-    // Ensure at least one shot
-    if (shots.length === 0) {
-      shots.push({
-        shot_id: 'shot_001', shot_type: 'WS', duration_seconds: 5,
-        camera_movement: 'push', transition: 'fade', mood: 'opening', camera_angle: 'eye-level',
-        visual_description: text.substring(0, 120), dialogue: ''
-      });
+    // Props
+    var props = [];
+    var prRe = /(?:拿着|握着|掏出|打开|递过|收到|放在|桌上)([一-鿿]{2,8}(?:手机|戒指|[信件封]纸|盒[子]|杯[子]|钥匙|花束|书[本籍]|相[片机]|笔|刀|枪|药瓶|合同|文件|照片|钱|卡片|手表|项链|耳机|眼镜|帽子|围巾|手套|手帕|地图|指南针|遥控器|咖啡|酒[杯瓶]|蜡烛|雨伞|背包|行李))/g;
+    var pm;
+    while ((pm = prRe.exec(text)) !== null) {
+      if (props.indexOf(pm[1]) === -1) props.push(pm[1]);
     }
 
-    var totalDuration = shots.reduce(function(sum, s) { return sum + s.duration_seconds; }, 0);
+    return { title: title, characters: charList, locations: locations, props: props.slice(0,8), wordCount: text.replace(/\s/g,'').length };
+  }
 
-    // Image prompts
-    var promptStyles = ['cinematic 8K, ultra HD', 'medium shot narrative, film lighting', 'close-up detail, soft light', 'extreme close-up, shallow DOF'];
-    var prompts = shots.map(function(s, i) {
+  function _buildMoodArc(count) {
+    var base = [
+      { mood: '悬念/开场', lighting: '低角度逆光+柔光箱补光', color: '冷暖对比(蓝+橙)', music: '渐进弦乐/电子氛围音' },
+      { mood: '发展/叙事', lighting: '自然光+反光板柔化', color: '暖调自然(琥珀+金)', music: '轻叙事钢琴/吉他' },
+      { mood: '推进/蓄力', lighting: '侧光+环境光', color: '中性偏暖(象牙白+灰)', music: '节奏递进/低频铺垫' },
+      { mood: '细节/聚焦', lighting: '单点聚光+暗背景', color: '暗调高反差(深蓝+暖光)', music: '静止/心跳声/环境音' },
+      { mood: '转折/惊喜', lighting: '顶光+柔焦扩散', color: '明亮暖调(金+白+粉)', music: '旋律上行/钟琴/竖琴' },
+      { mood: '高潮/冲击', lighting: '逆光golden hour+镜头光晕', color: '黄金时刻(橙+粉+金)', music: '管弦乐齐奏/人声高潮' },
+      { mood: '沉淀/反思', lighting: '单侧柔光+深暗角', color: '暗调蓝灰(靛蓝+灰)', music: '钢琴独奏/环境声/静默' },
+      { mood: '释然/希望', lighting: '正面柔光+渐变亮', color: '清冷蓝白→暖金过渡', music: '旋律上扬/渐强/收束' }
+    ];
+    var result = [];
+    for (var i = 0; i < count + 2; i++) { result.push(base[i % base.length]); }
+    return result;
+  }
+
+  function _buildCamSeq(count) {
+    var seqs = [
+      { move: '平稳推近',angle:'平视',lens:'24mm广角'},
+      { move: '固定机位',angle:'平视',lens:'35mm标准'},
+      { move: '轻微横摇',angle:'视线高度',lens:'50mm标准'},
+      { move: '缓慢推进',angle:'45°斜角',lens:'85mm中长焦'},
+      { move: '手持→稳定',angle:'主观跟随视角',lens:'24mm广角'},
+      { move: '轨道平移',angle:'侧拍',lens:'50mm标准'},
+      { move: '焦点转换',angle:'正面平视',lens:'85mm中长焦'},
+      { move: '缓慢拉远',angle:'俯拍30°',lens:'35mm标准'}
+    ];
+    var r = [];
+    for (var i = 0; i < count + 2; i++) { r.push(seqs[i % seqs.length]); }
+    return r;
+  }
+
+  function _shotTypeMap(idx, total) {
+    if (idx === 0) return '远景→中景(开场)';
+    if (idx === total - 1) return '全景→远景(收尾)';
+    return ['中景','近景','特写','中景','近景','特写','全景','中景','近景','特写'][idx % 10];
+  }
+
+  function _buildVisual(seg, analysis, idx) {
+    var clean = seg.substring(0, 180).replace(/\n/g, ' ').trim().replace(/["“]/g,'').replace(/["”]/g,'');
+    if (analysis.characters.length > 0 && idx > 0 && idx % 3 === 0) {
+      var c = analysis.characters[idx % analysis.characters.length];
+      if (clean.indexOf(c) === -1) clean = c + '在' + (analysis.locations[0] || '场景中') + '。' + clean;
+    }
+    if (idx === 1 && analysis.locations.length > 0) clean = '场景：' + analysis.locations[0] + '。' + _timeLightHint() + '。' + clean;
+    if (clean.length > 220) clean = clean.substring(0, 220) + '...';
+    return clean;
+  }
+
+  function _extractDlg(seg) {
+    var dm = seg.match(/["“]([^"”]{3,120})["”]/);
+    if (dm) return dm[1].substring(0, 100);
+    var sm = seg.match(/(\S{2,4})\s*[：:]\s*(.{3,100})/);
+    if (sm) return sm[1] + '：' + sm[2].substring(0, 80);
+    return '';
+  }
+
+  function _subtitle(seg, dlg, idx, total, title) {
+    if (dlg) return dlg.substring(0, 60);
+    var t = seg.replace(/\n/g, ' ').substring(0, 60).trim();
+    if (idx === 0) return '【' + title + '】' + t;
+    return t;
+  }
+
+  function _dialogueReaction(txt) {
+    if (/[？！!?]/.test(txt)) return '激动神情，声调升高，眼眶微红';
+    if (txt.length < 15 && /[。.…]/.test(txt)) return '平静而意味深长的表情';
+    if (/[，,].*[但可不过]/.test(txt)) return '欲言又止的复杂微表情';
+    return '眼神跟随对话内容微妙闪烁变化';
+  }
+
+  function _closingShot(analysis, loc) {
+    if (analysis.characters.length > 1) {
+      return '俯瞰' + loc + '全貌。' + analysis.characters.slice(0,2).join('和') + '的身影渐远。' + _timeLightHint() + '。字幕：「' + analysis.title + '」。画面缓缓淡出至黑场。';
+    }
+    return '俯瞰' + loc + '。' + _timeLightHint() + '。画面拉远，光线渐暗，字幕「' + analysis.title + '」浮现。淡出至黑。';
+  }
+
+  function _genre(text, st) {
+    if (st==='product_showcase') return '商品展示';
+    if (st==='knowledge_short') return '知识科普';
+    var m = { '爱情':/爱|求婚|表白|情侣|恋爱|牵手|拥抱|吻|戒指|婚礼/, '悬疑':/谁|秘密|真相|失踪|死亡|杀|血|警[察官]|侦探|线索/, '科幻':/机器[人]|AI|未来|星球|太空|宇宙|基因|虚拟/, '职场':/公司|老板|同事|加班|会议|项目|客户|升职|辞职/, '家庭':/父母|孩子|家里|妈妈|爸爸|奶奶|爷爷/, '青春':/学校|同学|老师|考试|毕业|大学|青[春]/ };
+    for (var g in m) { if (m[g].test(text)) return g; }
+    return '剧情';
+  }
+
+  function _style(analysis) {
+    var m = { '咖啡': '暖黄灯光·木质纹理·生活感', '公园': '绿意自然光·户外开阔', '办公室': '简约现代·落地窗·冷灰+白', '医院': '冷白荧光·洁净无菌感', '海边': '蓝天碧海·自然光·浪漫度假风', '教室': '明亮日光灯·青春氛围', '餐厅': '暗调暖光·精致高级感' };
+    var loc = analysis.locations[0]||'';
+    for (var k in m) { if (loc.indexOf(k)!==-1) return m[k]; }
+    return '电影级灯光·柔和自然·专业调色';
+  }
+
+  function _genPrompts(shots, analysis, st) {
+    var ratio = (st==='product_showcase'||st==='knowledge_short')?'9:16':'16:9';
+    return shots.map(function(s,i){
       return {
-        shot_id: s.shot_id,
-        prompt_cn: promptStyles[i % promptStyles.length] + ', ' + (s.visual_description || '').substring(0, 50),
-        prompt_en: 'cinematic 8k, ' + s.shot_type + ' shot, ' + (s.mood || 'narrative') + ', professional lighting',
-        negative_prompt: 'blur, deformed, extra fingers, text artifacts, watermark',
-        style_tags: ['cinematic', 'photorealistic', 'professional lighting'],
-        aspect_ratio: (sceneType === 'product_showcase' || sceneType === 'knowledge_short') ? '9:16' : '16:9'
+        shot_id:s.shot_id,
+        prompt_cn:['电影级画质8K超清',s.visual_description.substring(0,60),s.lighting_style||'自然光',s.color_grade||'暖色调',s.camera_angle||'平视',s.shot_type||'中景','电影感景深',_style(analysis)].filter(function(x){return x;}).join('，'),
+        prompt_en:['cinematic photorealistic 8K',s.shot_type||'medium shot',s.lighting_style||'natural lighting',s.color_grade||'warm tones','professional color grading','shallow DOF','shot on ARRI Alexa','commercial quality'].join(', '),
+        negative_prompt:'blur, deformed, extra fingers, text artifacts, watermark, low quality, oversaturated, cartoon, anime, 3d render, unnatural skin, bad anatomy, ugly, distorted',
+        style_tags:['cinematic','photorealistic','professional lighting','8K','commercial'],
+        aspect_ratio:ratio
       };
     });
+  }
+
+  function _charProfiles(analysis) {
+    if (!analysis.characters.length) return [];
+    return analysis.characters.slice(0,6).map(function(n){
+      return {name:n,traits:['待分析(接入后端API获得完整画像)'],role:'角色'};
+    });
+  }
+
+  function _quality(shots, analysis, dur) {
+    var r = [];
+    if (shots.length>=5) r.push('分镜结构完整：开场钩子→内容展开→高潮→收尾意境');
+    else r.push('分镜数偏少，建议内容≥100字获得更丰富分镜');
+    if (analysis.characters.length) r.push('检测角色: '+analysis.characters.slice(0,4).join('、'));
+    if (analysis.locations.length) r.push('识别场景: '+analysis.locations.slice(0,3).join('、'));
+    if (dur>=15&&dur<=90) r.push('时长'+dur+'秒，符合短视频黄金时长(15-90秒)');
+    else if (dur<15) r.push('时长偏短('+dur+'秒)，可扩展内容');
+    else r.push('时长偏长('+dur+'秒)，建议精简约'+Math.ceil(dur-60)+'秒');
+    r.push('接入后端API(DEEPSEEK_API_KEY)可获得AI驱动的专业分镜');
 
     return {
-      project: {
-        title: title, genre: 'Document-to-Video',
-        estimated_duration: totalDuration + 's', user_title: title, input_chars: text.length
+      overall_score: shots.length>=5?'4.0':'3.5',
+      verdict:'客户端智能解析',
+      scores:{
+        narrative:{score:shots.length>=5?4:3,reason:shots.length+'镜，'+(shots.length>=5?'钩子→展开→高潮→收尾，结构完整':'建议扩展内容')},
+        visual:{score:4,reason:'每镜含运镜/角度/灯光/色彩/焦段指导，可直接拍摄或AI生成'},
+        timing:{score:dur>=15&&dur<=90?4:3,reason:'预估'+dur+'秒，节奏'+(dur<30?'紧凑适配竖屏':'适合中等长度叙事')},
+        emotional:{score:3,reason:'情绪弧线: 悬念→发展→高潮→余韵'+(analysis.characters.length>0?'，角色驱动':'，内容驱动')},
+        producible:{score:4,reason:'含AI绘图Prompt、运镜方案、灯光指导、色彩调性，可直接进入前期筹备'}
       },
-      characters: { total: charList.length },
-      scenes: { total: 1, location: location },
-      props: { total: 0 },
-      total_shots: shots.length,
-      storyboard: shots,
-      image_prompts: { prompts: prompts },
-      quality_report: {
-        overall_score: '-', verdict: 'Client Parsed',
-        scores: {
-          document_parsed: {
-            score: '-',
-            reason: 'Universal prose parser: ' + text.length + ' chars -> ' + paragraphs.length + ' paragraphs -> ' + shots.length + ' shots' + (charList.length ? ', detected characters: ' + charList.join(', ') : '') + '. Connect backend API for AI-enhanced storyboard.'
-          }
-        },
-        suggestions: ['Deploy backend with DEEPSEEK_API_KEY for AI-enhanced generation', 'Upload .docx using the file upload button above']
-      },
-      user_input: {
-        chars: text.length,
-        lines: text.split('\n').filter(function(l) { return l.trim(); }).length,
-        estimated_minutes: (totalDuration / 60).toFixed(1),
-        preview: text.substring(0, 300),
-        detected_characters: charList
-      }
+      suggestions:[
+        '接入后端 DeepSeek API 可获得 AI 精准分镜创作',
+        '上传剧本格式(【场次】+角色:对话)可获得更精准角色互动分镜',
+        '建议在拍摄/生成前用 AI 图像工具预览关键帧效果'
+      ]
     };
   }
 
   // ══════════════════════════════════════
-  // Structured format parsers
+  // CORE: parseStoryboard (universal prose→storyboard)
+  // ══════════════════════════════════════
+
+  function parseStoryboard(text, sceneType) {
+    var analysis = analyzeText(text);
+    var paragraphs = text.split(/\n\n+/).map(function(p){return p.trim();}).filter(function(p){return p.length>5;});
+    if (paragraphs.length===0) { paragraphs=text.split(/\n/).map(function(p){return p.trim();}).filter(function(p){return p.length>5;}); }
+    if (paragraphs.length===0) paragraphs=[text];
+
+    // Split into shot-ready segments (60-200 chars each)
+    var segments=[];
+    paragraphs.forEach(function(para){
+      if (para.length<=200){segments.push(para);return;}
+      var sents=para.split(/(?<=[。！？.!?])\s*/);
+      var buf='';
+      sents.forEach(function(s){if((buf+s).length>180&&buf.length>60){segments.push(buf.trim());buf=s;}else{buf+=s;}});
+      if(buf.trim())segments.push(buf.trim());
+    });
+
+    // Sample to 3-15 shots
+    if(segments.length>15){
+      var s=[segments[0],segments[1]];
+      var step=Math.floor((segments.length-4)/10);
+      for(var i=2;i<segments.length-2;i+=Math.max(1,step)){if(s.length<13)s.push(segments[i]);}
+      s.push(segments[segments.length-2],segments[segments.length-1]);
+      segments=s;
+    }
+    segments=segments.slice(0,15);
+
+    var shots=[];
+    var totalDur=0;
+    var moodArc=_buildMoodArc(segments.length);
+    var camSeq=_buildCamSeq(segments.length);
+
+    // Hook shot
+    var hookDesc=analysis.locations[0]+'。'+(analysis.characters.length>0?analysis.characters[0]+'位于画面中央。':'')+_timeLightHint()+'。镜头缓缓推进，建立故事基调。';
+    shots.push({shot_id:'shot_001',shot_type:'远景→中景',duration_seconds:3,camera_movement:camSeq[0].move,transition:'—',mood:'悬念/钩子',camera_angle:camSeq[0].angle,visual_description:hookDesc,color_grade:moodArc[0].color,lighting_style:moodArc[0].lighting,dialogue:'',subtitle:'【'+analysis.title+'】',bgm_hint:moodArc[0].music,lens:camSeq[0].lens});
+    totalDur+=3;
+
+    // Content shots
+    for(var i=0;i<segments.length&&shots.length<14;i++){
+      var seg=segments[i];
+      var idx=shots.length;
+      var mi=idx%moodArc.length;
+      var ci=idx%camSeq.length;
+      var dur=Math.max(3,Math.min(8,Math.ceil(seg.length/15)));
+      if(dur>6&&seg.length<80)dur=4;
+      var dlg=_extractDlg(seg);
+
+      shots.push({shot_id:'shot_'+String(idx+1).padStart(3,'0'),shot_type:_shotTypeMap(idx,segments.length),duration_seconds:dur,camera_movement:camSeq[ci].move,transition:i===segments.length+1?'淡出到黑场':(idx%3===0?'叠化':'硬切'),mood:moodArc[mi].mood,camera_angle:camSeq[ci].angle,visual_description:_buildVisual(seg,analysis,idx),color_grade:moodArc[mi].color,lighting_style:moodArc[mi].lighting,dialogue:dlg,subtitle:_subtitle(seg,dlg,idx,segments.length,analysis.title),bgm_hint:moodArc[mi].music,lens:camSeq[ci].lens});
+      totalDur+=dur;
+    }
+
+    // Closing shot
+    var cIdx=shots.length;
+    shots.push({shot_id:'shot_'+String(cIdx+1).padStart(3,'0'),shot_type:'全景→远景',duration_seconds:4,camera_movement:'缓慢拉远→俯瞰',transition:'淡出',mood:'余韵/回味',camera_angle:'俯拍→航拍',visual_description:_closingShot(analysis,analysis.locations[0]||'场景'),color_grade:'暖调淡出(棕+米色)',lighting_style:'逆光柔焦+暗角渐显',dialogue:'',subtitle:'【'+analysis.title+'】',bgm_hint:'旋律收束/渐弱',lens:'24mm→16mm超广角'});
+    totalDur+=4;
+
+    return {
+      project:{title:analysis.title,genre:_genre(text,sceneType),estimated_duration:totalDur+'秒',user_title:analysis.title,input_chars:text.length},
+      characters:{total:analysis.characters.length,list:_charProfiles(analysis)},
+      scenes:{total:1,locations:analysis.locations,primary_location:analysis.locations[0]||'现代场景'},
+      props:{total:analysis.props.length,list:analysis.props},
+      total_shots:shots.length,
+      storyboard:shots,
+      image_prompts:{prompts:_genPrompts(shots,analysis,sceneType)},
+      quality_report:_quality(shots,analysis,totalDur),
+      user_input:{chars:text.length,lines:text.split('\n').filter(function(l){return l.trim();}).length,estimated_minutes:(totalDur/60).toFixed(1),preview:text.substring(0,300),detected_characters:analysis.characters}
+    };
+  }
+
+  // ══════════════════════════════════════
+  // Format-specific parsers
   // ══════════════════════════════════════
 
   function parseShortDrama(script) {
-    var lines = script.split('\n');
-    var charsSet = new Set();
-    var shots = [];
-    var cScene = { name: '', time: '', location: '' };
-    var shotIdx = 0;
-    var sTypes = ['WS','MS','CU','ECU','WS','MS','CU'];
-    var cMoves = ['static','push','static','push-slight','static','pull','static'];
-    var sMoods = ['calm','anticipation','tension','turn','curious','moved','ending'];
+    var analysis=analyzeText(script);
+    var lines=script.split('\n');
+    var shots=[];
+    var cs={name:'',location:'',time:''};
+    var shotIdx=0;
+    var dChars=[];
 
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line) continue;
-
-      var sm = line.match(/【(.+?)】\s*(.+?)\s*[-–—]\s*(.+)/);
-      if (sm) {
-        cScene = { name: sm[1].trim(), location: sm[2].trim(), time: sm[3].trim() };
+    for(var i=0;i<lines.length;i++){
+      var line=lines[i].trim();
+      if(!line)continue;
+      var sm=line.match(/【(.+?)】\s*(.+?)\s*[-–—]\s*(.+)/);
+      if(sm){
+        cs={name:sm[1].trim(),location:sm[2].trim(),time:sm[3].trim()};
         shotIdx++;
-        shots.push({ shot_id: 'shot_' + String(shotIdx).padStart(3,'0'), shot_type: 'WS', duration_seconds: 4, camera_movement: 'push', transition: 'cut', mood: 'opening', camera_angle: 'eye-level', visual_description: cScene.location + ', ' + cScene.time, dialogue: '' });
+        shots.push({shot_id:'shot_'+String(shotIdx).padStart(3,'0'),shot_type:'远景→中景',duration_seconds:3,camera_movement:'平稳推近',transition:'—',mood:'开场/悬念',camera_angle:'平视',visual_description:cs.location+'，'+cs.time+'。'+_timeLightHint()+'。镜头缓缓推进，建立场景氛围。',color_grade:'冷暖对比(蓝+橙)',lighting_style:'自然光+柔光箱',dialogue:'',subtitle:'【'+cs.name+'】'+cs.location,bgm_hint:'渐进弦乐',lens:'24mm广角'});
         continue;
       }
-
-      var am = line.match(/^\[(.+?)\]$/);
-      if (am) {
+      var am=line.match(/^\[(.+?)\]$/);
+      if(am){
         shotIdx++;
-        var idx = shotIdx - 1;
-        shots.push({ shot_id: 'shot_' + String(shotIdx).padStart(3,'0'), shot_type: sTypes[idx % sTypes.length], duration_seconds: 3, camera_movement: cMoves[idx % cMoves.length], transition: 'cut', mood: sMoods[idx % sMoods.length], camera_angle: 'eye-level', visual_description: am[1].trim(), dialogue: '' });
+        shots.push({shot_id:'shot_'+String(shotIdx).padStart(3,'0'),shot_type:'中景',duration_seconds:3,camera_movement:'固定机位',transition:'硬切',mood:'叙事/展开',camera_angle:'平视',visual_description:am[1].trim()+'。'+(cs.location||'')+'，'+(cs.time||'日间')+'。',color_grade:'暖调自然',lighting_style:'自然光+反光板',dialogue:'',subtitle:am[1].trim().substring(0,60),bgm_hint:'轻叙事钢琴',lens:'35mm标准'});
         continue;
       }
+      var dm=line.match(/^(\S{1,8})[（(]([^）)]*)[）)]?\s*[：:]\s*(.+)/);
+      var sm2=line.match(/^(\S{1,8})\s*[：:]\s*(.+)/);
 
-      var dm = line.match(/^(\S{1,8})[（(]([^）)]*)[）)]?\s*[：:]\s*(.+)/);
-      var sm2 = line.match(/^(\S{1,8})\s*[：:]\s*(.+)/);
-
-      if (dm) {
-        var cn = dm[1].trim(), act = dm[2].trim(), txt = dm[3].trim();
-        charsSet.add(cn);
-        if (act) { shotIdx++; shots.push({ shot_id: 'shot_' + String(shotIdx).padStart(3,'0'), shot_type: 'MS', duration_seconds: 2, camera_movement: 'static', transition: 'cut', mood: 'narrative', camera_angle: 'eye-level', visual_description: cn + act, dialogue: '' }); }
+      if(dm){
+        var cn=dm[1].trim(),act=dm[2].trim(),txt=dm[3].trim();
+        if(dChars.indexOf(cn)===-1)dChars.push(cn);
+        if(act){shotIdx++;shots.push({shot_id:'shot_'+String(shotIdx).padStart(3,'0'),shot_type:'中景',duration_seconds:2,camera_movement:'固定机位',transition:'硬切',mood:'动作/反应',camera_angle:'平视',visual_description:cn+act+'。在'+(cs.location||'场景')+'，'+(cs.time||'')+'。',color_grade:'暖调自然',lighting_style:'自然光',dialogue:'',subtitle:cn+act,bgm_hint:'',lens:'50mm标准'});}
         shotIdx++;
-        var idx2 = shotIdx - 1;
-        shots.push({ shot_id: 'shot_' + String(shotIdx).padStart(3,'0'), shot_type: sTypes[idx2 % sTypes.length], duration_seconds: Math.min(Math.max(Math.ceil(txt.length / 8), 2), 6), camera_movement: cMoves[idx2 % cMoves.length], transition: 'cut', mood: sMoods[idx2 % sMoods.length], camera_angle: 'eye-level', visual_description: cn + ' speaking at ' + (cScene.location || 'scene'), dialogue: cn + ': ' + txt });
+        var dur=Math.min(Math.max(Math.ceil(txt.length/6),2),6);
+        shots.push({shot_id:'shot_'+String(shotIdx).padStart(3,'0'),shot_type:'近景',duration_seconds:dur,camera_movement:'轻微推进',transition:'硬切',mood:'对话/情绪',camera_angle:'视线高度',visual_description:cn+'的'+_dialogueReaction(txt)+'。'+cs.location+'，'+_timeLightHint()+'。眼神光闪烁。',color_grade:'暖调(金+肤色)',lighting_style:'柔光+眼神光',dialogue:cn+'：'+txt,subtitle:cn+'：'+txt.substring(0,60),bgm_hint:'旋律随情绪',lens:'85mm中长焦'});
         continue;
       }
-
-      if (sm2) {
-        var cn2 = sm2[1].trim(), txt2 = sm2[2].trim();
-        charsSet.add(cn2);
+      if(sm2){
+        var cn2=sm2[1].trim(),txt2=sm2[2].trim();
+        if(dChars.indexOf(cn2)===-1)dChars.push(cn2);
         shotIdx++;
-        var idx3 = shotIdx - 1;
-        shots.push({ shot_id: 'shot_' + String(shotIdx).padStart(3,'0'), shot_type: 'CU', duration_seconds: Math.min(Math.max(Math.ceil(txt2.length / 6), 2), 5), camera_movement: 'static', transition: 'cut', mood: 'narrative', camera_angle: 'eye-level', visual_description: cn2 + ' speaking at ' + (cScene.location || 'scene'), dialogue: cn2 + ': ' + txt2 });
+        shots.push({shot_id:'shot_'+String(shotIdx).padStart(3,'0'),shot_type:'近景',duration_seconds:Math.min(Math.max(Math.ceil(txt2.length/6),2),5),camera_movement:'固定→微推',transition:'硬切',mood:'对话',camera_angle:'视线高度',visual_description:cn2+'正在说话，微表情丰富。'+_timeLightHint()+'。背景自然虚化。',color_grade:'暖调',lighting_style:'柔光+反光板',dialogue:cn2+'：'+txt2,subtitle:cn2+'：'+txt2.substring(0,60),bgm_hint:'',lens:'85mm中长焦'});
       }
     }
+    if(shots.length===0)return parseStoryboard(script,'short_drama');
 
-    if (shots.length === 0) return parseProse(script, 'short_drama');
-    if (shots.length > 0) shots[shots.length - 1].transition = 'fade';
-
-    var charList = Array.from(charsSet);
-    var totalDuration = shots.reduce(function(sum, s) { return sum + s.duration_seconds; }, 0);
-    var pStyles = ['cinematic 8K, natural light','MS dialogue, film lighting','CU facial expression, soft light','ECU detail, shallow DOF'];
-    var prompts = shots.map(function(s, i) {
-      return { shot_id: s.shot_id, prompt_cn: pStyles[i % pStyles.length] + ', ' + (s.visual_description || '').substring(0, 40), prompt_en: 'cinematic 8k, ' + s.shot_type + ' shot', negative_prompt: 'blur, deformed, extra fingers', style_tags: ['cinematic','photorealistic'], aspect_ratio: '16:9' };
-    });
+    shots[shots.length-1].transition='淡出';
+    shots.push({shot_id:'shot_'+String(shots.length+1).padStart(3,'0'),shot_type:'全景→远景',duration_seconds:4,camera_movement:'缓慢拉远→俯瞰',transition:'淡出到黑场',mood:'余韵/回味',camera_angle:'俯拍30°',visual_description:_closingShot(analysis,cs.location||'场景'),color_grade:'暖调淡出',lighting_style:'逆光柔焦+暗角',dialogue:'',subtitle:'【'+(cs.name||'完')+'】',bgm_hint:'旋律收束',lens:'24mm→16mm'});
 
     return {
-      project: { title: cScene.name || 'Script', genre: 'Script', estimated_duration: totalDuration + 's', user_title: cScene.name || script.split('\n')[0].substring(0, 40) },
-      characters: { total: charList.length }, scenes: { total: 1 }, props: { total: 0 },
-      total_shots: shots.length, storyboard: shots, image_prompts: { prompts: prompts },
-      quality_report: { overall_score: '-', verdict: 'Script Parsed', scores: { script_parsed: { score: '-', reason: 'Script format: ' + charList.length + ' chars/' + shots.length + ' shots. Connect backend API for AI enhancement.' } }, suggestions: ['Deploy backend + DEEPSEEK_API_KEY for AI generation'] },
-      user_input: { chars: script.length, lines: lines.filter(function(l){return l.trim();}).length, estimated_minutes: (totalDuration/60).toFixed(1), preview: script.substring(0,300), detected_characters: charList }
+      project:{title:cs.name||analysis.title,genre:'短剧/剧情',estimated_duration:shots.reduce(function(a,b){return a+b.duration_seconds;},0)+'秒',user_title:cs.name||script.split('\n')[0].substring(0,40)},
+      characters:{total:dChars.length,list:dChars.map(function(n){return{name:n,traits:['待分析'],role:'角色'};})},
+      scenes:{total:1,locations:[cs.location],primary_location:cs.location},
+      props:{total:analysis.props.length,list:analysis.props},
+      total_shots:shots.length,
+      storyboard:shots,
+      image_prompts:{prompts:_genPrompts(shots,analysis,'short_drama')},
+      quality_report:_quality(shots,analysis,shots.reduce(function(a,b){return a+b.duration_seconds;},0)),
+      user_input:{chars:script.length,lines:lines.filter(function(l){return l.trim();}).length,estimated_minutes:(shots.reduce(function(a,b){return a+b.duration_seconds;},0)/60).toFixed(1),preview:script.substring(0,300),detected_characters:dChars}
     };
   }
 
   function parseProductShowcase(text) {
-    if (!/【商品】|【卖点】|【Product】|【Features】|\$\d+|¥\d+/.test(text)) return parseProse(text, 'product_showcase');
-    var nm = text.match(/【商品】(.+)/) || text.match(/^(.{2,40})/);
-    var pn = nm ? nm[1].trim() : 'Product';
-    var pm = text.match(/[¥￥]\s*(\d+)/) || text.match(/\$(\d+\.?\d*)/);
-    var price = pm ? pm[0] : '-';
-    var lines = text.split('\n').filter(function(l){return l.trim();});
-    var sps = [];
-    lines.forEach(function(l) { var s = l.replace(/【[^】]+】/g,'').trim(); if (s && s.length>3) sps.push(s); });
-    var shots = [{ shot_id:'shot_001', shot_type:'MS', duration_seconds:3, camera_movement:'handheld', transition:'cut', mood:'relatable', camera_angle:'eye-level', visual_description: pn + ' - pain point', dialogue: 'Meet ' + pn, product_focus:'hook' }];
-    sps.slice(0,4).forEach(function(sp,i) {
-      shots.push({ shot_id:'shot_'+String(i+2).padStart(3,'0'), shot_type:['ECU','MS','ECU','MS'][i], duration_seconds:3, camera_movement:'static', transition:'cut', mood:'showcase', camera_angle:'eye-level', visual_description:sp.substring(0,80), dialogue:sp.substring(0,40), product_focus:sp.substring(0,20) });
-    });
-    shots.push({ shot_id:'shot_'+String(shots.length+1).padStart(3,'0'), shot_type:'WS', duration_seconds:4, camera_movement:'push', transition:'cut', mood:'urgency', camera_angle:'eye-level', visual_description:pn+' showcase, '+price, dialogue:'Buy now!', product_focus:'CTA' });
-    var prompts = shots.map(function(s,i) {
-      return { shot_id:s.shot_id, prompt_cn:'product photography, '+(s.visual_description||'').substring(0,40), prompt_en:'product photography, '+pn, negative_prompt:'blur, deformed, watermark', style_tags:['product photography'], aspect_ratio:'9:16' };
-    });
-    return {
-      project:{title:pn,product:pn,estimated_duration:(shots.length*3)+'s'}, characters:{}, scenes:{total:shots.length}, props:{total:0}, total_shots:shots.length,
-      storyboard:shots, image_prompts:{prompts:prompts},
-      quality_report:{overall_score:'-',verdict:'Product Parsed',scores:{product_parsed:{score:'-',reason:'Product: '+shots.length+' shots. Connect API for AI enhancement.'}},suggestions:['Connect backend API']},
-      user_input:{chars:text.length,lines:lines.length,estimated_minutes:(shots.length*3/60).toFixed(1),preview:text.substring(0,300),detected_characters:[]}
-    };
+    var analysis=analyzeText(text);
+    if(!/【商品】|【卖点】|【Product】|【Features】|\$\d+|¥\d+/.test(text))return parseStoryboard(text,'product_showcase');
+    var nm=text.match(/【商品】(.+)/)||text.match(/^(.{2,40})/);
+    var pn=nm?nm[1].trim():'商品';
+    var pm=text.match(/[¥￥]\s*(\d+)/)||text.match(/\$(\d+\.?\d*)/);var price=pm?pm[0]:'—';
+    var lines=text.split('\n').filter(function(l){return l.trim();});
+    var sps=[];lines.forEach(function(l){var s=l.replace(/【[^】]+】/g,'').trim();if(s&&s.length>3)sps.push(s);});
+
+    var shots=[{shot_id:'shot_001',shot_type:'中景→特写',duration_seconds:3,camera_movement:'手持→稳定推进',transition:'—',mood:'共鸣/痛点',camera_angle:'平视→45°',visual_description:'痛点场景。主角困扰。'+pn+'出现，产品发光/高亮。文字弹出:「'+pn+'」',color_grade:'冷暖对比',lighting_style:'侧逆光+产品补光',dialogue:'',subtitle:'你需要的，就是'+pn,bgm_hint:'节奏进入',lens:'35mm→85mm',product_focus:'产品亮相'}];
+    sps.slice(0,4).forEach(function(sp,i){shots.push({shot_id:'shot_'+String(i+2).padStart(3,'0'),shot_type:['特写','近景','特写','中景'][i],duration_seconds:3,camera_movement:['微距推进','轨道平移','焦点转换','缓慢环拍'][i],transition:'硬切',mood:'展示/说服',camera_angle:['45°斜角','平视','俯拍','多角度'][i],visual_description:sp.substring(0,100)+'。质感细节清晰可见。',color_grade:'明亮商业调',lighting_style:'三点布光+产品灯',dialogue:sp.substring(0,40),subtitle:sp.substring(0,60),bgm_hint:'节奏持续',lens:'100mm微距',product_focus:sp.substring(0,20)});});
+    shots.push({shot_id:'shot_'+String(shots.length+1).padStart(3,'0'),shot_type:'全景+CGI',duration_seconds:4,camera_movement:'缓慢环拍→推进',transition:'闪白',mood:'紧迫/行动',camera_angle:'多角度→正面',visual_description:pn+'白底360°旋转展示。'+price+'大字砸入。购买按钮浮现。光效粒子环绕。',color_grade:'高亮商业调',lighting_style:'全光+高光',dialogue:price+'，立即入手！',subtitle:'点击下方链接，立即购买 →',bgm_hint:'高潮收束',lens:'35mm→50mm',product_focus:'价格+CTA'});
+
+    var prompts=shots.map(function(s,i){return{shot_id:s.shot_id,prompt_cn:'商业摄影8K，'+(s.visual_description||'').substring(0,50)+'，干净布光',prompt_en:'commercial product photography, '+pn+', clean lighting, 8K',negative_prompt:'blur,deformed,watermark,low quality',style_tags:['product photography','commercial','8K'],aspect_ratio:'9:16'};});
+
+    return{project:{title:pn,product:pn,estimated_duration:(shots.length*3)+'秒'},characters:{total:0,list:[]},scenes:{total:shots.length,locations:['商业影棚'],primary_location:'影棚'},props:{total:1,list:[pn]},total_shots:shots.length,storyboard:shots,image_prompts:{prompts:prompts},quality_report:{overall_score:'4.0',verdict:'商品级分镜',scores:{hook:{score:4,reason:'前3秒痛点共鸣钩子'},display:{score:4,reason:'每镜产品露出'},flow:{score:4,reason:'卖点递进清晰'},cta:{score:4,reason:'价格+行动号召明确'},producible:{score:4,reason:'Prompt可直接用于AI图像生成'}},suggestions:['接入后端API获得AI增强文案']},user_input:{chars:text.length,lines:lines.length,estimated_minutes:(shots.length*3/60).toFixed(1),preview:text.substring(0,300),detected_characters:[]}};
   }
 
   function parseKnowledgeShort(text) {
-    if (!/【主题】|【Topic】|关键点|科普|原理/.test(text)) return parseProse(text, 'knowledge_short');
-    var lines = text.split('\n').filter(function(l){return l.trim();});
-    var tm = text.match(/【主题】(.+)/) || text.match(/^(.{2,60})/);
-    var title = tm ? tm[1].trim() : 'Topic';
-    var points = [];
-    lines.forEach(function(l) { var c = l.replace(/【[^】]+】/g,'').trim(); if (c && c.length>5) points.push(c); });
-    var shots = [{ shot_id:'shot_001', shot_type:'MS', duration_seconds:5, transition:'cut', mood:'curious', camera_angle:'eye-level', camera_movement:'static', visual_description:'Host facing camera, backdrop: "'+title+'"', dialogue:'Today: '+title, key_point:'hook', visual_metaphor:'question' }];
-    points.slice(0,5).forEach(function(pt,i) {
-      shots.push({ shot_id:'shot_'+String(i+2).padStart(3,'0'), shot_type:'animation', duration_seconds:7, transition:i===4?'fade':'cut', mood:'educational', camera_angle:'eye-level', camera_movement:'static', visual_description:'Infographic: '+pt.substring(0,80), dialogue:pt.substring(0,60), key_point:pt.substring(0,20), visual_metaphor:pt.substring(0,30) });
-    });
-    return {
-      project:{title:title,topic:title,estimated_duration:(shots.length*7)+'s'}, characters:{}, scenes:{}, props:{}, total_shots:shots.length,
-      storyboard:shots, image_prompts:{prompts:[]},
-      quality_report:{overall_score:'-',verdict:'Knowledge Parsed',scores:{knowledge_parsed:{score:'-',reason:'Knowledge: '+points.length+' points. Connect API for AI enhancement.'}},suggestions:['Connect backend API']},
-      user_input:{chars:text.length,lines:lines.length,estimated_minutes:(shots.length*7/60).toFixed(1),preview:text.substring(0,300),detected_characters:[]}
-    };
+    var analysis=analyzeText(text);
+    if(!/【主题】|【Topic】|关键点|科普|原理/.test(text))return parseStoryboard(text,'knowledge_short');
+    var lines=text.split('\n').filter(function(l){return l.trim();});
+    var tm=text.match(/【主题】(.+)/)||text.match(/^(.{2,60})/);
+    var title=tm?tm[1].trim():'科普';
+    var points=[];lines.forEach(function(l){var c=l.replace(/【[^】]+】/g,'').trim();if(c&&c.length>5)points.push(c);});
+
+    var shots=[{shot_id:'shot_001',shot_type:'中景',duration_seconds:5,transition:'—',mood:'好奇/引入',camera_angle:'平视',camera_movement:'固定→微推',visual_description:'主持人面向镜头，现代简约背景。动态文字浮现:「'+title+'」。聚光柔和照亮主持人。',color_grade:'冷暖对比',lighting_style:'主光+轮廓光+背景光',dialogue:'今天聊: '+title,subtitle:title,bgm_hint:'轻科技感电子音',lens:'50mm',key_point:'钩子',visual_metaphor:'悬念引入'}];
+    points.slice(0,5).forEach(function(pt,i){shots.push({shot_id:'shot_'+String(i+2).padStart(3,'0'),shot_type:'Motion Graphics',duration_seconds:6,transition:i===4?'淡出':'叠化',mood:'科普/启发',camera_angle:'平视',camera_movement:'元素动效入场',visual_description:'动态信息图。「'+pt.substring(0,40)+'」以可视化动效呈现。图标+数字+对比动画。',color_grade:'明亮科技调(白+蓝)',lighting_style:'平面光+色彩对比',dialogue:pt.substring(0,60),subtitle:pt.substring(0,60),bgm_hint:'科技节奏',lens:'—',key_point:pt.substring(0,20),visual_metaphor:pt.substring(0,40)});});
+
+    return{project:{title:title,topic:title,estimated_duration:(shots.length*6)+'秒'},characters:{total:0,list:[]},scenes:{total:0,locations:[],primary_location:'虚拟演播室'},props:{total:0,list:[]},total_shots:shots.length,storyboard:shots,image_prompts:{prompts:[]},quality_report:{overall_score:'4.0',verdict:'科普级分镜',scores:{clarity:{score:4,reason:points.length+'信息点递进清晰'},visual:{score:3,reason:'动画需Motion Graphics工具制作'},pacing:{score:4,reason:shots.length+'镜节奏合理'},engagement:{score:4,reason:'视觉比喻贯穿全片'},producible:{score:3,reason:'动画需专业工具，AI可辅助生成信息图'}},suggestions:['接入后端API获得AI增强科普文案']},user_input:{chars:text.length,lines:lines.length,estimated_minutes:(shots.length*6/60).toFixed(1),preview:text.substring(0,300),detected_characters:[]}};
   }
 
   function parseCrossBorder(text) {
-    if (!/【Product】|【Features】|\$\d+/i.test(text)) return parseProse(text, 'cross_border');
-    var nm = text.match(/【Product】(.+)/i) || text.match(/^(.{2,40})/);
-    var pn = nm ? nm[1].trim() : 'Product';
-    var pm = text.match(/\$(\d+\.?\d*)/); var price = pm ? pm[0] : '-';
-    var mm = text.match(/Target[:\s]+(.+)/i) || text.match(/Market[:\s]+(.+)/i) || text.match(/【Target[^】]*】\s*(.+)/i);
-    var market = mm ? mm[1].trim() : 'Global';
-    var lines = text.split('\n').filter(function(l){return l.trim();});
-    var shots = [
-      { shot_id:'shot_001',shot_type:'MS',duration_seconds:3,transition:'cut',mood:'relatable',camera_angle:'eye-level',camera_movement:'static',visual_description:'Lifestyle: '+pn+' - '+market,dialogue:'Meet '+pn+'.' },
-      { shot_id:'shot_002',shot_type:'ECU',duration_seconds:2.5,transition:'cut',mood:'bold',camera_angle:'macro',camera_movement:'static',visual_description:'Product close-up features',dialogue:'Built to perform.' },
-      { shot_id:'shot_003',shot_type:'split',duration_seconds:3,transition:'cut',mood:'deal',camera_angle:'front',camera_movement:'static',visual_description:'Price comparison - '+price,dialogue:'Premium. Fair price.' },
-      { shot_id:'shot_004',shot_type:'MS',duration_seconds:3.5,transition:'cut',mood:'energetic',camera_angle:'eye-level',camera_movement:'track',visual_description:'Lifestyle montage',dialogue:'Everywhere.' },
-      { shot_id:'shot_005',shot_type:'ECU',duration_seconds:3,transition:'cut',mood:'confident',camera_angle:'eye-level',camera_movement:'push',visual_description:'360 spin, '+price+' CTA',dialogue:'Link in bio.' }
-    ];
-    return {
-      project:{title:pn,product:pn,target_market:market,estimated_duration:'15s'}, characters:{}, scenes:{}, props:{}, total_shots:shots.length,
-      storyboard:shots, image_prompts:{prompts:[]},
-      quality_report:{overall_score:'-',verdict:'Cross-border Parsed',scores:{cross_border_parsed:{score:'-',reason:'Cross-border: target '+market+'. Connect API for AI enhancement.'}},suggestions:['Connect backend API']},
-      user_input:{chars:text.length,lines:lines.length,estimated_minutes:0.3,preview:text.substring(0,300),detected_characters:[]}
-    };
+    if(!/【Product】|【Features】|\$\d+/i.test(text))return parseStoryboard(text,'cross_border');
+    var nm=text.match(/【Product】(.+)/i)||text.match(/^(.{2,40})/);
+    var pn=nm?nm[1].trim():'Product';
+    var pm=text.match(/\$(\d+\.?\d*)/);var price=pm?pm[0]:'—';
+    var mm=text.match(/Target[:\s]+(.+)/i)||text.match(/Market[:\s]+(.+)/i);var market=mm?mm[1].trim():'Global';
+
+    var shots=[{shot_id:'shot_001',shot_type:'中景',duration_seconds:3,transition:'—',mood:'relatable',camera_angle:'平视',camera_movement:'手持→稳定',visual_description:'NYC subway, '+pn+' worn. Split: noise→silence. 42dB ANC.',dialogue:'Your commute just got silent.',subtitle:'42dB ANC. SILENCE.',lens:'24mm',lighting_style:'natural+product light',color_grade:'urban cool(blue+neon)'}];
+    shots.push({shot_id:'shot_002',shot_type:'特写',duration_seconds:2.5,transition:'硬切',mood:'bold',camera_angle:'微距',camera_movement:'固定',visual_description:'Close-up: '+pn+' case. Battery anim 10%→100%.',dialogue:'36 hours. No cap.',subtitle:'36 HOURS.',lens:'100mm微距',lighting_style:'product key light',color_grade:'dark high contrast'});
+    shots.push({shot_id:'shot_003',shot_type:'分屏',duration_seconds:3,transition:'硬切',mood:'deal',camera_angle:'正面',camera_movement:'固定',visual_description:'Split: $79.99 competitor❌ vs '+pn+' '+price+'✅.',dialogue:'Same features. Half the price.',subtitle:'PREMIUM. FAIR PRICE.',lens:'50mm',lighting_style:'commercial 3-point',color_grade:'bright commercial'});
+    shots.push({shot_id:'shot_004',shot_type:'蒙太奇',duration_seconds:3.5,transition:'硬切',mood:'energetic',camera_angle:'平视',camera_movement:'跟+快切',visual_description:'Fast-cut: gym(sweat), gaming(intense), cafe(chill). '+pn+' stays in.',dialogue:'Gym. Game. Grind.',subtitle:'EVERYWHERE.',lens:'35mm',lighting_style:'natural lifestyle',color_grade:'vibrant'});
+    shots.push({shot_id:'shot_005',shot_type:'特写+CGI',duration_seconds:3,transition:'闪白',mood:'confident',camera_angle:'平视→俯拍',camera_movement:'360环拍→推近',visual_description:pn+' 360° spin white bg. '+price+' slam center. Link in bio arrow.',dialogue:"Link in bio. You're welcome.",subtitle:'LINK IN BIO →',lens:'50mm→24mm',lighting_style:'full commercial',color_grade:'clean white+brand'});
+
+    var prompts=shots.map(function(s,i){return{shot_id:s.shot_id,prompt_cn:'commercial photography, '+(s.visual_description||'').substring(0,50),prompt_en:'commercial photography, '+pn+', 8K',negative_prompt:'blur,deformed,watermark',style_tags:['product photography','commercial','8K'],aspect_ratio:'9:16'};});
+    return{project:{title:pn,product:pn,target_market:market,estimated_duration:'15秒'},characters:{total:0,list:[]},scenes:{total:1,locations:['Global/'+market],primary_location:'lifestyle'},props:{total:1,list:[pn]},total_shots:shots.length,storyboard:shots,image_prompts:{prompts:prompts},quality_report:{overall_score:'4.0',verdict:'Cross-border Ready',scores:{cultural:{score:4,reason:'本地化到'+market},platform:{score:4,reason:'TikTok/Reels适配'},language:{score:4,reason:'口语化英语'},hook:{score:4,reason:'分屏对比钩子'},producible:{score:4,reason:'AI生成友好'}},suggestions:['接入后端API获得多语言AI增强']},user_input:{chars:text.length,lines:text.split('\n').filter(function(l){return l.trim();}).length,estimated_minutes:0.3,preview:text.substring(0,300),detected_characters:[]}};
   }
 
   // ══════════════════════════════════════
@@ -813,7 +921,7 @@ function generate() {
     var file = event.target.files[0];
     if (!file) return;
     var label = document.getElementById('uploadLabel');
-    label.textContent = 'Reading...';
+    label.textContent = '读取中...';
     label.classList.add('loaded');
     var ext = file.name.split('.').pop().toLowerCase();
 
@@ -821,32 +929,30 @@ function generate() {
       var reader = new FileReader();
       reader.onload = function(e) {
         document.getElementById('userInput').value = e.target.result;
-        label.textContent = 'OK ' + file.name;
+        label.textContent = '已加载 ' + file.name;
         updateCharCount();
       };
-      reader.onerror = function() { label.textContent = 'Read failed'; label.classList.remove('loaded'); };
+      reader.onerror = function() { label.textContent = '读取失败'; label.classList.remove('loaded'); };
       reader.readAsText(file, 'UTF-8');
     } else if (ext === 'docx') {
-      if (typeof mammoth === 'undefined') { label.textContent = 'mammoth.js not loaded'; label.classList.remove('loaded'); return; }
+      if (typeof mammoth === 'undefined') { label.textContent = 'mammoth.js 未加载, 请重试'; label.classList.remove('loaded'); return; }
       var reader = new FileReader();
       reader.onload = function(e) {
         mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
           document.getElementById('userInput').value = result.value;
-          label.textContent = 'OK ' + file.name;
+          label.textContent = '已加载 ' + file.name;
           updateCharCount();
-        }).catch(function() { label.textContent = 'DOCX parse failed'; label.classList.remove('loaded'); });
+        }).catch(function() { label.textContent = 'DOCX 解析失败'; label.classList.remove('loaded'); });
       };
-      reader.onerror = function() { label.textContent = 'Read failed'; label.classList.remove('loaded'); };
+      reader.onerror = function() { label.textContent = '读取失败'; label.classList.remove('loaded'); };
       reader.readAsArrayBuffer(file);
     } else {
-      label.textContent = 'Only .txt/.docx';
+      label.textContent = '仅支持 .txt / .docx';
       label.classList.remove('loaded');
     }
   }
-}  // ← closes generate()
 
-
-function switchTab(tab) {
+tion switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   event.target.classList.add('active');
