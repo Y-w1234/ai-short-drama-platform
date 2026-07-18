@@ -400,7 +400,7 @@ function generate() {
     const qr = result.quality_report || {};
     const storyboard = result.storyboard || [];
     const prompts = (result.image_prompts || {}).prompts || [];
-    const userInput = result.user_input || null;
+    const ui = result.user_input || null;      // user_input object (no shadow)
     const userTitle = (result.project || {}).user_title || null;
 
     // 保存以便 tab 切换时使用
@@ -416,14 +416,14 @@ function generate() {
       : '<span class="safety-badge fail" style="margin-left:10px;">⚠️ 安全扫描未启用</span>';
 
     safetyEl.innerHTML = `<div style="background:#1a1a2e; padding:15px; border-radius:12px; margin-bottom:15px;">
-      ✅ 生成完成！<span style="color:#888;"> — 用户输入 ${userInput.length} 字符 · ${storyboard.length}个分镜 · 质量 ${qr.overall_score || '—'}/5</span>
+      ✅ 生成完成！<span style="color:#888;"> — 用户输入 ${ui ? ui.chars : '—'} 字符 · ${storyboard.length}个分镜 · 质量 ${qr.overall_score || '—'}/5</span>
       ${safetyCheck}${demoBadge}
     </div>`;
 
     // Metrics
-    const detectedChars = (userInput && userInput.detected_characters) || [];
+    const detectedChars = (ui && ui.detected_characters) || [];
     metricsEl.innerHTML = `<div class="metrics">
-      <div class="metric"><div class="num">${userInput ? userInput.chars : '—'}</div><div class="label">输入字符</div></div>
+      <div class="metric"><div class="num">${ui ? ui.chars : '—'}</div><div class="label">输入字符</div></div>
       <div class="metric"><div class="num">${storyboard.length}</div><div class="label">分镜数</div></div>
       <div class="metric"><div class="num">${qr.overall_score || '—'}/5</div><div class="label">质量评分</div></div>
       <div class="metric"><div class="num">${detectedChars.length || result.characters?.total || '—'}</div><div class="label">检测角色</div></div>
@@ -843,6 +843,7 @@ function generate() {
       label.classList.remove('loaded');
     }
   }
+}  // ← closes generate()
 
 
 function switchTab(tab) {
