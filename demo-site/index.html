@@ -481,9 +481,294 @@ function generate() {
   }
 
   function fallbackToDemo() {
+    // 如果用户输入与默认剧本不同，用客户端解析器生成分镜
     const demo = DEMOS[currentScene];
-    const result = JSON.parse(JSON.stringify(demo.result)); // clone
-    doRender(result, true);
+    const defaultScript = demo.defaultScript || '';
+    const isCustomInput = userInput !== defaultScript;
+
+    if (isCustomInput && currentScene === 'short_drama') {
+      // 客户端解析用户剧本，生成基础分镜
+      const parsed = parseShortDrama(userInput);
+      doRender(parsed, true);
+    } else if (isCustomInput && currentScene === 'product_showcase') {
+      const parsed = parseProductShowcase(userInput);
+      doRender(parsed, true);
+    } else if (isCustomInput && currentScene === 'knowledge_short') {
+      const parsed = parseKnowledgeShort(userInput);
+      doRender(parsed, true);
+    } else if (isCustomInput && currentScene === 'cross_border') {
+      const parsed = parseCrossBorder(userInput);
+      doRender(parsed, true);
+    } else {
+      // 用户未修改默认内容，使用预置 Demo
+      const result = JSON.parse(JSON.stringify(demo.result));
+      doRender(result, true);
+    }
+  }
+
+  // ══════════════════════════════════════
+  // Client-side script parser (no LLM needed)
+  // ══════════════════════════════════════
+
+  function parseShortDrama(script) {
+    const lines = script.split('\n');
+    const charsSet = new Set();
+    const shots = [];
+    let currentScene = { name: '未知场景', time: '未知', location: '未知' };
+    let shotIdx = 0;
+
+    // Shot type rotation for variety
+    const shotTypes = ['全景','中景','近景','特写','全景','中景','近景'];
+    const cameraMoves = ['固定','推','固定','微推','固定','拉','固定'];
+    const moods = ['平静','期待','紧张','转折','好奇','感动','结束'];
+    const transitions = ['硬切','硬切','硬切','硬切','硬切','硬切','淡出'];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Parse scene header: 【第X场】地点 - 时间
+      const sceneMatch = line.match(/【(.+?)】\s*(.+?)\s*[-–—]\s*(.+)/);
+      if (sceneMatch) {
+        currentScene.name = sceneMatch[1].trim();
+        currentScene.location = sceneMatch[2].trim();
+        currentScene.time = sceneMatch[3].trim();
+        // Opening scene → establishing shot
+        shotIdx++;
+        shots.push({
+          shot_id: 'shot_' + String(shotIdx).padStart(3,'0'),
+          shot_type: '全景', duration_seconds: 4,
+          camera_movement: '推', transition: '硬切', mood: '开场',
+          camera_angle: '平视',
+          visual_description: currentScene.location + '，' + currentScene.time,
+          dialogue: ''
+        });
+        continue;
+      }
+
+      // Parse action: [小红坐在角落，不停看手机]
+      const actionMatch = line.match(/^\[(.+?)\]$/);
+      if (actionMatch) {
+        shotIdx++;
+        const idx = shotIdx - 1;
+        shots.push({
+          shot_id: 'shot_' + String(shotIdx).padStart(3,'0'),
+          shot_type: shotTypes[idx % shotTypes.length],
+          duration_seconds: 3,
+          camera_movement: cameraMoves[idx % cameraMoves.length],
+          transition: transitions[idx >= shots.length-1 ? transitions.length-1 : idx % transitions.length],
+          mood: moods[idx % moods.length],
+          camera_angle: '平视',
+          visual_description: actionMatch[1].trim(),
+          dialogue: ''
+        });
+        continue;
+      }
+
+      // Parse dialogue: 角色名（动作）：对话   or   角色名：对话
+      const dialogueMatch = line.match(/^(\S{1,8})[（(]([^）)]*)[）)]?\s*[：:]\s*(.+)/);
+      const simpleDialogueMatch = line.match(/^(\S{1,8})\s*[：:]\s*(.+)/);
+
+      if (dialogueMatch) {
+        const charName = dialogueMatch[1].trim();
+        const action = dialogueMatch[2].trim();
+        const text = dialogueMatch[3].trim();
+        charsSet.add(charName);
+
+        if (action && !shots.some(s => s.visual_description && s.visual_description.includes(charName + action))) {
+          shotIdx++;
+          shots.push({
+            shot_id: 'shot_' + String(shotIdx).padStart(3,'0'),
+            shot_type: '中景', duration_seconds: 2,
+            camera_movement: '固定', transition: '硬切', mood: '叙述',
+            camera_angle: '平视',
+            visual_description: charName + action,
+            dialogue: ''
+          });
+        }
+
+        shotIdx++;
+        const idx = shotIdx - 1;
+        shots.push({
+          shot_id: 'shot_' + String(shotIdx).padStart(3,'0'),
+          shot_type: shotTypes[idx % shotTypes.length],
+          duration_seconds: Math.min(Math.max(Math.ceil(text.length / 8), 2), 6),
+          camera_movement: cameraMoves[idx % cameraMoves.length],
+          transition: '硬切',
+          mood: moods[idx % moods.length],
+          camera_angle: '平视',
+          visual_description: charName + '正在说话',
+          dialogue: charName + '：' + text
+        });
+        continue;
+      }
+
+      if (simpleDialogueMatch) {
+        const charName = simpleDialogueMatch[1].trim();
+        const text = simpleDialogueMatch[2].trim();
+        charsSet.add(charName);
+        shotIdx++;
+        const idx = shotIdx - 1;
+        shots.push({
+          shot_id: 'shot_' + String(shotIdx).padStart(3,'0'),
+          shot_type: '近景',
+          duration_seconds: Math.min(Math.max(Math.ceil(text.length / 6), 2), 5),
+          camera_movement: '固定',
+          transition: '硬切',
+          mood: '叙述',
+          camera_angle: '平视',
+          visual_description: charName + '在' + currentScene.location + '说话',
+          dialogue: charName + '：' + text
+        });
+      }
+    }
+
+    // Final shot as fade-out
+    if (shots.length > 0) {
+      shots[shots.length-1].transition = '淡出';
+    }
+
+    const charList = Array.from(charsSet);
+    const totalDuration = shots.reduce((sum, s) => sum + s.duration_seconds, 0);
+
+    // Generate simple image prompts
+    const promptTemplates = ['电影级画质，8K超清，自然光', '中景对话场景，电影感光线', '近景人物表情，柔和布光', '特写细节，浅景深'];
+    const prompts = shots.map((s, i) => ({
+      shot_id: s.shot_id,
+      prompt_cn: promptTemplates[i % promptTemplates.length] + '，' + (s.visual_description || '').substring(0, 40),
+      prompt_en: 'cinematic 8k, ' + s.shot_type + ' shot, professional lighting',
+      negative_prompt: 'blur, deformed, extra fingers, text artifacts',
+      style_tags: ['cinematic', 'photorealistic'],
+      aspect_ratio: '16:9'
+    }));
+
+    return {
+      project: {
+        title: (currentScene.name !== '未知场景' ? currentScene.name : '用户剧本'),
+        genre: '用户创作',
+        estimated_duration: totalDuration + '秒',
+        user_title: currentScene.name !== '未知场景' ? currentScene.name : lines[0].substring(0, 40)
+      },
+      characters: { total: charList.length },
+      scenes: { total: 1, name: currentScene.name, location: currentScene.location },
+      props: { total: 0 },
+      total_shots: shots.length,
+      storyboard: shots,
+      image_prompts: { prompts: prompts },
+      quality_report: {
+        overall_score: '—',
+        verdict: '客户端解析',
+        scores: {
+          user_script_parsed: { score: '—', reason: '客户端Demo模式：已解析用户输入的' + charList.length + '个角色，' + shots.length + '个分镜。连接后端API可获得LLM生成的完整分镜方案。' }
+        },
+        suggestions: ['部署后端并配置 DEEPSEEK_API_KEY 以启用 AI 驱动的分镜生成']
+      },
+      user_input: {
+        chars: script.length,
+        lines: lines.filter(l => l.trim()).length,
+        estimated_minutes: (totalDuration / 60).toFixed(1),
+        preview: script.substring(0, 300),
+        detected_characters: charList
+      }
+    };
+  }
+
+  function parseProductShowcase(text) {
+    // Extract product info from user input
+    const nameMatch = text.match(/【商品】(.+)/) || text.match(/^(.{2,40})/);
+    const productName = nameMatch ? nameMatch[1].trim() : '未知商品';
+    const priceMatch = text.match(/[¥￥]\s*(\d+)/) || text.match(/\$(\d+\.?\d*)/);
+    const price = priceMatch ? priceMatch[0] : '—';
+
+    const lines = text.split('\n').filter(l => l.trim());
+    const sellingPoints = [];
+    lines.forEach(l => {
+      const sp = l.replace(/【[^】]+】/g, '').trim();
+      if (sp && sp.length > 3) sellingPoints.push(sp);
+    });
+
+    const shots = [];
+    // Opening hook
+    shots.push({ shot_id:'shot_001', shot_type:'中景', duration_seconds:3, camera_movement:'手持→稳定', transition:'硬切', mood:'共鸣', camera_angle:'平视', visual_description:'用户指定商品：' + productName + ' — 痛点场景', dialogue:'认识一下' + productName, product_focus:'钩子/痛点' });
+
+    // Selling point shots
+    const types = ['特写','中景','特写','中景'];
+    sellingPoints.slice(0, 4).forEach((sp, i) => {
+      shots.push({ shot_id:'shot_' + String(i+2).padStart(3,'0'), shot_type:types[i], duration_seconds:3, camera_movement:'固定', transition:'硬切', mood:'展示', camera_angle:'平视', visual_description:sp.substring(0, 80), dialogue:sp.substring(0, 40), product_focus:sp.substring(0, 20) });
+    });
+
+    // CTA
+    shots.push({ shot_id:'shot_' + String(shots.length+1).padStart(3,'0'), shot_type:'全景→特写', duration_seconds:4, camera_movement:'推', transition:'硬切', mood:'紧迫', camera_angle:'平视', visual_description:productName + ' 白色背景展示，' + price, dialogue:'立即购买！', product_focus:'CTA' });
+
+    const prompts = shots.map((s, i) => ({
+      shot_id: s.shot_id, prompt_cn:'电商产品摄影，' + (s.visual_description||'').substring(0,40), prompt_en:'product photography, ' + productName, negative_prompt:'blur, deformed product, watermark', style_tags:['product photography','clean lighting'], aspect_ratio:'9:16'
+    }));
+
+    return {
+      project: { title: productName, product: productName, estimated_duration: (shots.length * 3) + '秒' },
+      characters: {}, scenes: { total: shots.length }, props: { total: 0 },
+      total_shots: shots.length,
+      storyboard: shots,
+      image_prompts: { prompts: prompts },
+      quality_report: { overall_score: '—', verdict: '客户端解析', scores: { user_input_parsed: { score: '—', reason: '客户端Demo模式：已解析用户商品信息，' + shots.length + '个分镜' } }, suggestions: ['连接后端API启用AI驱动生成'] },
+      user_input: { chars: text.length, lines: lines.length, estimated_minutes: (shots.length*3/60).toFixed(1), preview: text.substring(0, 300), detected_characters: [] }
+    };
+  }
+
+  function parseKnowledgeShort(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    const titleMatch = text.match(/【主题】(.+)/) || text.match(/^(.{2,60})/);
+    const title = titleMatch ? titleMatch[1].trim() : '科普主题';
+
+    const points = [];
+    lines.forEach(l => {
+      const clean = l.replace(/【[^】]+】/g, '').trim();
+      if (clean && clean.length > 5) points.push(clean);
+    });
+
+    const shots = [];
+    shots.push({ shot_id:'shot_001', shot_type:'中景', duration_seconds:5, transition:'硬切', mood:'好奇', camera_angle:'平视', camera_movement:'固定', visual_description:'主持人面对镜头，背景显示"' + title + '"', dialogue:'今天我们来聊聊：' + title, key_point:'钩子', visual_metaphor:'提问' });
+
+    points.slice(0, 5).forEach((pt, i) => {
+      shots.push({ shot_id:'shot_' + String(i+2).padStart(3,'0'), shot_type:'动画', duration_seconds:7, transition:i===points.length-1?'淡出':'硬切', mood:'科普', camera_angle:'平视', camera_movement:'固定', visual_description:'信息图表展示：' + pt.substring(0, 80), dialogue:pt.substring(0, 60), key_point:pt.substring(0, 20), visual_metaphor:pt.substring(0, 30) });
+    });
+
+    return {
+      project: { title: title, topic: title, estimated_duration: (shots.length * 7) + '秒' },
+      characters: {}, scenes: {}, props: {}, total_shots: shots.length,
+      storyboard: shots,
+      image_prompts: { prompts: [] },
+      quality_report: { overall_score: '—', verdict: '客户端解析', scores: { user_input_parsed: { score: '—', reason: '客户端Demo模式：已解析' + points.length + '个信息点' } }, suggestions: ['连接后端API启用AI驱动生成'] },
+      user_input: { chars: text.length, lines: lines.length, estimated_minutes: (shots.length*7/60).toFixed(1), preview: text.substring(0, 300), detected_characters: [] }
+    };
+  }
+
+  function parseCrossBorder(text) {
+    // Similar structure to product_showcase but with market awareness
+    const nameMatch = text.match(/【Product】(.+)/i) || text.match(/^(.{2,40})/);
+    const productName = nameMatch ? nameMatch[1].trim() : 'Unknown Product';
+    const priceMatch = text.match(/\$(\d+\.?\d*)/);
+    const price = priceMatch ? priceMatch[0] : '—';
+    const marketMatch = text.match(/Target[:\s]+(.+)/i) || text.match(/Market[:\s]+(.+)/i);
+    const market = marketMatch ? marketMatch[1].trim() : 'Global';
+
+    const lines = text.split('\n').filter(l => l.trim());
+    const shots = [
+      { shot_id:'shot_001', shot_type:'中景', duration_seconds:3, transition:'硬切', mood:'relatable', camera_angle:'平视', camera_movement:'固定', visual_description:'Lifestyle scene with ' + productName + ' — ' + market + ' market', dialogue:'Meet ' + productName + '.', localization_notes:'Universal appeal' },
+      { shot_id:'shot_002', shot_type:'特写', duration_seconds:2.5, transition:'硬切', mood:'bold', camera_angle:'微距', camera_movement:'固定', visual_description:'Product close-up with key feature highlight', dialogue:'Built to perform.' },
+      { shot_id:'shot_003', shot_type:'分屏', duration_seconds:3, transition:'硬切', mood:'deal', camera_angle:'正面', camera_movement:'固定', visual_description:'Price comparison split screen — ' + price, dialogue:'Premium features. Fair price.' },
+      { shot_id:'shot_004', shot_type:'中景', duration_seconds:3.5, transition:'硬切', mood:'energetic', camera_angle:'平视', camera_movement:'跟', visual_description:'Lifestyle montage: gym, work, travel', dialogue:'Everywhere you go.' },
+      { shot_id:'shot_005', shot_type:'产品特写', duration_seconds:3, transition:'硬切', mood:'confident', camera_angle:'平视', camera_movement:'推', visual_description:'Product 360 spin, ' + price + ' CTA', dialogue:'Link in bio.' }
+    ];
+
+    return {
+      project: { title: productName, product: productName, target_market: market, estimated_duration: '15秒' },
+      characters: {}, scenes: {}, props: {}, total_shots: shots.length,
+      storyboard: shots,
+      image_prompts: { prompts: [] },
+      quality_report: { overall_score: '—', verdict: '客户端解析', scores: { user_input_parsed: { score: '—', reason: '客户端Demo模式：已解析跨境商品，目标市场: ' + market } }, suggestions: ['连接后端API启用AI驱动生成'] },
+      user_input: { chars: text.length, lines: lines.length, estimated_minutes: 0.3, preview: text.substring(0, 300), detected_characters: [] }
+    };
   }
 }
 
